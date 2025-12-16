@@ -14,34 +14,44 @@ public class ResultInterceptor {
     private Object interceptedResult = null;
     private Throwable interceptedException = null;
 
-    void interceptResult(Object result) {
+    private Object eventTrackerData = null;
+
+    public void interceptResult(Object result) {
         if (isIntercepted()) throw ResultAlreadyInterceptedException(this);
         interceptedResult = result;
     }
 
-    void interceptException(Throwable throwable) {
+    public void interceptException(Throwable throwable) {
         if (isIntercepted()) throw ResultAlreadyInterceptedException(this);
         interceptedException = throwable;
     }
 
-    Object getInterceptedResult() {
+    public Object getInterceptedResult() {
         return interceptedResult;
     }
 
-    Throwable getInterceptedException() {
+    public Throwable getInterceptedException() {
         return interceptedException;
     }
 
-    boolean isResultIntercepted() {
+    public boolean isResultIntercepted() {
         return (interceptedResult != null);
     }
 
-    boolean isExceptionIntercepted() {
+    public boolean isExceptionIntercepted() {
         return (interceptedException != null);
     }
 
-    boolean isIntercepted() {
+    public boolean isIntercepted() {
         return (interceptedResult != null || interceptedException != null);
+    }
+
+    public Object getEventTrackerData() {
+        return eventTrackerData;
+    }
+
+    public void setEventTrackerData(Object eventTrackerData) {
+        this.eventTrackerData = eventTrackerData;
     }
 
     private static IllegalStateException ResultAlreadyInterceptedException(ResultInterceptor interceptor) {

@@ -1650,6 +1650,7 @@ internal abstract class ManagedStrategy(
         if (threadScheduler.isAborted(threadId)) {
             threadScheduler.abortCurrentThread()
         }
+
         // obtain deterministic method descriptor if required
         val methodCallInfo = MethodCallInfo(
             ownerType = Types.ObjectType(methodDescriptor.className),
@@ -1657,7 +1658,30 @@ internal abstract class ManagedStrategy(
             codeLocation = codeLocation,
             methodId = methodId,
         )
+        var deterministicCallId = -1L
         val deterministicMethodDescriptor = getDeterministicMethodDescriptorOrNull(receiver, params, methodCallInfo)
+        val interceptedResult = when {
+            // we are at normal deterministic method => no need to enforce the deterministic result
+            (deterministicMethodDescriptor == null) -> null
+            // in Lincheck mode we always run stub implementation to simulate the deterministic result
+            !isInTraceDebuggerMode -> deterministicMethodDescriptor.runFake(receiver, params)
+            // in trace debugger mode, on the first invocation record the result, on next invocations => replay it
+            else -> {
+                deterministicCallId = nativeMethodCallStatesTracker.getNextId()
+                if (isFirstReplay) null else {
+                    val state = nativeMethodCallStatesTracker.getState(deterministicCallId, methodCallInfo)
+                    deterministicMethodDescriptor.runFromStateWithCast(receiver, params, state)
+                }
+            }
+        }
+        if (interceptedResult != null) {
+            interceptor?.interceptDeterministicMethodCall(
+                deterministicCallId,
+                deterministicMethodDescriptor!!,
+                interceptedResult,
+            )
+        }
+
         // get method's analysis section type
         val methodSection = methodAnalysisSectionType(
             receiver,
@@ -1759,23 +1783,21 @@ internal abstract class ManagedStrategy(
             processIntrinsicMethodEffects(threadDescriptor, methodId, result)
         }
 
-        // var newResult = result
-        // if (deterministicMethodDescriptor != null) {
-        //     Logger.debug { "On method return with descriptor $deterministicMethodDescriptor: $result" }
-        // }
-        // require(deterministicMethodDescriptor is DeterministicMethodDescriptor<*, *>?)
-        //
-        // if (isInTraceDebuggerMode && isFirstReplay && deterministicMethodDescriptor != null) {
-        //     newResult =
-        //         deterministicMethodDescriptor.saveFirstResultWithCast(receiver, params, KResult.success(result)) {
-        //             nativeMethodCallStatesTracker.setState(
-        //                 descriptorId,
-        //                 deterministicMethodDescriptor.methodCallInfo,
-        //                 it
-        //             )
-        //         }
-        //         .getOrElse { error("Unexpected replacement success -> failure:\n$result\n${KResult.failure<Any?>(it)}") }
-        // }
+        if (isInTraceDebuggerMode && isFirstReplay && interceptor != null) {
+            val interceptorData = (interceptor.eventTrackerData as? DeterministicMethodCallInterceptorData)
+            if (interceptorData != null) {
+                val deterministicMethodDescriptor = interceptorData.deterministicMethodDescriptor
+                val newResult = deterministicMethodDescriptor.saveFirstResultWithCast(receiver, params, KResult.success(result)) {
+                    nativeMethodCallStatesTracker.setState(
+                        interceptorData.deterministicCallId,
+                        deterministicMethodDescriptor.methodCallInfo,
+                        it
+                    )
+                }.getOrElse {
+                    error("Unexpected replacement success -> failure:\n$result\n${KResult.failure<Any?>(it)}")
+                }
+            }
+        }
 
         val threadId = threadScheduler.getCurrentThreadId()
         // check if the called method is an atomics API method
@@ -1829,19 +1851,21 @@ internal abstract class ManagedStrategy(
     ) = threadDescriptor.runInsideIgnoredSection {
         val methodDescriptor = TRACE_CONTEXT.getMethodDescriptor(methodId)
 
-        // var newThrowable = throwable
-        // if (deterministicMethodDescriptor != null) {
-        //     Logger.debug { "On method exception with descriptor $deterministicMethodDescriptor:\n${throwable.stackTraceToString()}" }
-        // }
-        // require(deterministicMethodDescriptor is DeterministicMethodDescriptor<*, *>?)
-        // if (isInTraceDebuggerMode && isFirstReplay && deterministicMethodDescriptor != null) {
-        //     newThrowable = deterministicMethodDescriptor.saveFirstResult(receiver, params, KResult.failure(throwable)) {
-        //         nativeMethodCallStatesTracker.setState(descriptorId, deterministicMethodDescriptor.methodCallInfo, it)
-        //     }.let { newResult ->
-        //         newResult.exceptionOrNull()
-        //             ?: error("Unexpected replacement failure -> success:\n$throwable\n$newResult")
-        //     }
-        // }
+        if (isInTraceDebuggerMode && isFirstReplay && interceptor != null) {
+            val interceptorData = (interceptor.eventTrackerData as? DeterministicMethodCallInterceptorData)
+            if (interceptorData != null) {
+                val deterministicMethodDescriptor = interceptorData.deterministicMethodDescriptor
+                val newThrowable = deterministicMethodDescriptor.saveFirstResult(receiver, params, KResult.failure(throwable)) {
+                    nativeMethodCallStatesTracker.setState(
+                        interceptorData.deterministicCallId,
+                        deterministicMethodDescriptor.methodCallInfo,
+                        it
+                    )
+                }.let { newResult ->
+                    newResult.exceptionOrNull() ?: error("Unexpected replacement failure -> success:\n$throwable\n$newResult")
+                }
+            }
+        }
 
         val threadId = threadScheduler.getCurrentThreadId()
         // check if the called method is an atomics API method
