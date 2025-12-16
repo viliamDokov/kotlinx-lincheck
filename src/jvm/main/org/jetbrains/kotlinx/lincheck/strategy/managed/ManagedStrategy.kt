@@ -1636,8 +1636,9 @@ internal abstract class ManagedStrategy(
         codeLocation: Int,
         methodId: Int,
         receiver: Any?,
-        params: Array<Any?>
-    ): Any? = threadDescriptor.runInsideIgnoredSection {
+        params: Array<Any?>,
+        interceptor: ResultInterceptor?,
+    ): Unit = threadDescriptor.runInsideIgnoredSection {
         val methodDescriptor = TRACE_CONTEXT.getMethodDescriptor(methodId)
         // check if the called method is an atomics API method
         // (e.g., Atomic classes, AFU, VarHandle memory access API, etc.)
@@ -1679,7 +1680,7 @@ internal abstract class ManagedStrategy(
         // Should this method call be ignored?
         if (methodSection == AnalysisSectionType.IGNORED) {
             enterAnalysisSection(threadId, methodSection)
-            return deterministicMethodDescriptor
+            return
         }
         // in case of an atomic method, we create a switch point before the method call;
         // note that in case we resume atomic method there is no need to create the switch point,
@@ -1741,41 +1742,41 @@ internal abstract class ManagedStrategy(
         }
         // if the method has certain guarantees, enter the corresponding section
         enterAnalysisSection(threadId, methodSection)
-        return deterministicMethodDescriptor
     }
 
     override fun onMethodCallReturn(
         threadDescriptor: ThreadDescriptor,
-        descriptorId: Long,
-        deterministicMethodDescriptor: Any?,
         methodId: Int,
         receiver: Any?,
         params: Array<Any?>,
-        result: Any?
-    ): Any? = threadDescriptor.runInsideIgnoredSection {
+        result: Any?,
+        interceptor: ResultInterceptor?,
+    ): Unit = threadDescriptor.runInsideIgnoredSection {
         val methodDescriptor = TRACE_CONTEXT.getMethodDescriptor(methodId)
-        var newResult = result
-        if (deterministicMethodDescriptor != null) {
-            Logger.debug { "On method return with descriptor $deterministicMethodDescriptor: $result" }
-        }
 
-        require(deterministicMethodDescriptor is DeterministicMethodDescriptor<*, *>?)
         // process intrinsic candidate methods
         if (methodDescriptor.isIntrinsic) {
             processIntrinsicMethodEffects(threadDescriptor, methodId, result)
         }
 
-        if (isInTraceDebuggerMode && isFirstReplay && deterministicMethodDescriptor != null) {
-            newResult =
-                deterministicMethodDescriptor.saveFirstResultWithCast(receiver, params, KResult.success(result)) {
-                    nativeMethodCallStatesTracker.setState(
-                        descriptorId,
-                        deterministicMethodDescriptor.methodCallInfo,
-                        it
-                    )
-                }
-                .getOrElse { error("Unexpected replacement success -> failure:\n$result\n${KResult.failure<Any?>(it)}") }
-        }
+        // var newResult = result
+        // if (deterministicMethodDescriptor != null) {
+        //     Logger.debug { "On method return with descriptor $deterministicMethodDescriptor: $result" }
+        // }
+        // require(deterministicMethodDescriptor is DeterministicMethodDescriptor<*, *>?)
+        //
+        // if (isInTraceDebuggerMode && isFirstReplay && deterministicMethodDescriptor != null) {
+        //     newResult =
+        //         deterministicMethodDescriptor.saveFirstResultWithCast(receiver, params, KResult.success(result)) {
+        //             nativeMethodCallStatesTracker.setState(
+        //                 descriptorId,
+        //                 deterministicMethodDescriptor.methodCallInfo,
+        //                 it
+        //             )
+        //         }
+        //         .getOrElse { error("Unexpected replacement success -> failure:\n$result\n${KResult.failure<Any?>(it)}") }
+        // }
+
         val threadId = threadScheduler.getCurrentThreadId()
         // check if the called method is an atomics API method
         // (e.g., Atomic classes, AFU, VarHandle memory access API, etc.)
@@ -1786,7 +1787,7 @@ internal abstract class ManagedStrategy(
             methodDescriptor.className,
             methodDescriptor.methodName,
             atomicMethodDescriptor,
-            deterministicMethodDescriptor,
+            null, // deterministicMethodDescriptor,
         )
         if (collectTrace && methodSection != AnalysisSectionType.IGNORED) {
             // an empty stack trace case is possible and can occur when we resume the coroutine,
@@ -1816,32 +1817,32 @@ internal abstract class ManagedStrategy(
         }
         // if the method has certain guarantees, leave the corresponding section
         leaveAnalysisSection(threadId, methodSection)
-        return newResult
     }
 
     override fun onMethodCallException(
         threadDescriptor: ThreadDescriptor,
-        descriptorId: Long,
-        deterministicMethodDescriptor: Any?,
         methodId: Int,
         receiver: Any?,
         params: Array<Any?>,
-        throwable: Throwable
-    ): Throwable = threadDescriptor.runInsideIgnoredSection {
-        var newThrowable = throwable
+        throwable: Throwable,
+        interceptor: ResultInterceptor?,
+    ) = threadDescriptor.runInsideIgnoredSection {
         val methodDescriptor = TRACE_CONTEXT.getMethodDescriptor(methodId)
-        if (deterministicMethodDescriptor != null) {
-            Logger.debug { "On method exception with descriptor $deterministicMethodDescriptor:\n${throwable.stackTraceToString()}" }
-        }
-        require(deterministicMethodDescriptor is DeterministicMethodDescriptor<*, *>?)
-        if (isInTraceDebuggerMode && isFirstReplay && deterministicMethodDescriptor != null) {
-            newThrowable = deterministicMethodDescriptor.saveFirstResult(receiver, params, KResult.failure(throwable)) {
-                nativeMethodCallStatesTracker.setState(descriptorId, deterministicMethodDescriptor.methodCallInfo, it)
-            }.let { newResult ->
-                newResult.exceptionOrNull()
-                    ?: error("Unexpected replacement failure -> success:\n$throwable\n$newResult")
-            }
-        }
+
+        // var newThrowable = throwable
+        // if (deterministicMethodDescriptor != null) {
+        //     Logger.debug { "On method exception with descriptor $deterministicMethodDescriptor:\n${throwable.stackTraceToString()}" }
+        // }
+        // require(deterministicMethodDescriptor is DeterministicMethodDescriptor<*, *>?)
+        // if (isInTraceDebuggerMode && isFirstReplay && deterministicMethodDescriptor != null) {
+        //     newThrowable = deterministicMethodDescriptor.saveFirstResult(receiver, params, KResult.failure(throwable)) {
+        //         nativeMethodCallStatesTracker.setState(descriptorId, deterministicMethodDescriptor.methodCallInfo, it)
+        //     }.let { newResult ->
+        //         newResult.exceptionOrNull()
+        //             ?: error("Unexpected replacement failure -> success:\n$throwable\n$newResult")
+        //     }
+        // }
+
         val threadId = threadScheduler.getCurrentThreadId()
         // check if the called method is an atomics API method
         // (e.g., Atomic classes, AFU, VarHandle memory access API, etc.)
@@ -1852,14 +1853,14 @@ internal abstract class ManagedStrategy(
             methodDescriptor.className,
             methodDescriptor.methodName,
             atomicMethodDescriptor,
-            deterministicMethodDescriptor,
+            null, // deterministicMethodDescriptor,
         )
         if (collectTrace && methodSection != AnalysisSectionType.IGNORED) {
             // this case is possible and can occur when we resume the coroutine,
             // and it results in a call to a top-level actor `suspend` function;
             // currently top-level actor functions are not represented in the `callStackTrace`,
             // we should probably refactor and fix that, because it is very inconvenient
-            if (callStackTrace[threadId]!!.isEmpty()) return newThrowable
+            if (callStackTrace[threadId]!!.isEmpty()) return
             val tracePoint = callStackTrace[threadId]!!.last().tracePoint
             if (!tracePoint.isActor) tracePoint.initializeThrownException(throwable)
             afterMethodCall(threadId, tracePoint)
@@ -1867,7 +1868,6 @@ internal abstract class ManagedStrategy(
         }
         // if the method has certain guarantees, leave the corresponding section
         leaveAnalysisSection(threadId, methodSection)
-        newThrowable
     }
 
     override fun onInlineMethodCall(

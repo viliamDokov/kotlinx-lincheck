@@ -127,7 +127,7 @@ internal class LincheckClassVisitor(
 
         // ======== Method Calls ========
         chain.addTransformer { adapter, mv ->
-            applyMethodCallTransformer(methodName, desc, access, methodInfo, config, adapter, mv)
+            MethodCallTransformer(fileName, className, methodName, desc, access, methodInfo, adapter, mv, config)
         }
 
         // ======== Object Creation ========
@@ -210,24 +210,6 @@ internal class LincheckClassVisitor(
             mv = IntrinsicCandidateMethodFilter(className, methodName, desc, initialVisitor, mv)
         }
 
-        return mv
-    }
-
-    private fun applyMethodCallTransformer(
-        methodName: String,
-        desc: String,
-        access: Int,
-        methodInfo: MethodInformation,
-        configuration: TransformationConfiguration,
-        adapter: GeneratorAdapter,
-        methodVisitor: MethodVisitor,
-    ): MethodCallTransformerBase {
-        var mv = methodVisitor
-        if (instrumentationMode == TRACE_RECORDING) {
-            mv = MethodCallMinimalTransformer(fileName, className, methodName, desc, access, methodInfo, adapter, mv, configuration)
-        } else {
-            mv = MethodCallTransformer(fileName, className, methodName, desc, access, methodInfo, adapter, mv, configuration)
-        }
         return mv
     }
 
