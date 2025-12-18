@@ -101,16 +101,42 @@ internal class MethodCallTransformer(
             storeLocal(it)
         }
 
+        val resultInterceptorLocal = newLocal(OBJECT_TYPE).also {
+            invokeStatic(Injections::createResultInterceptor)
+            storeLocal(it)
+        }
+
         // STACK: <empty>
-        processMethodCallEnter(methodId, receiverLocal, argumentsArrayLocal, ownerName, argumentNames, threadDescriptorLocal)
+        processMethodCallEnter(methodId, receiverLocal, argumentsArrayLocal, ownerName, argumentNames, threadDescriptorLocal, resultInterceptorLocal)
         // STACK: <empty>
         tryCatchFinally(
             tryBlock = {
-                // STACK: <empty>
-                receiverLocal?.let { loadLocal(it) }
-                loadLocals(argumentLocals)
-                // STACK: receiver?, arguments
-                mv.visitMethodInsn(opcode, owner, name, desc, itf)
+                // Stack <empty>
+                ifStatement(
+                    condition =  {
+                        loadLocal(resultInterceptorLocal)
+                        // Stack <resultInterceptor>
+                        invokeStatic(Injections::isResultIntercepted)
+                        // Stack <empty>
+                    },
+                    thenClause = {
+                        // Stack <empty>
+                        loadLocal(resultInterceptorLocal)
+                        // Stack <resultInterceptor>
+                        invokeStatic(Injections::getResultOrThrow)
+                        // Stack <result>
+                        if (returnType == VOID_TYPE) pop() else unbox(returnType)
+                        // Stack <result?>
+                    },
+                    elseClause = {
+                        // Stack <empty>
+                        receiverLocal?.let { loadLocal(it) }
+                        loadLocals(argumentLocals)
+                        // STACK: receiver?, arguments
+                        mv.visitMethodInsn(opcode, owner, name, desc, itf)
+                        // Stack <result?>
+                    },
+                )
                 // STACK: result?
                 processMethodCallReturn(
                     returnType,
@@ -118,6 +144,7 @@ internal class MethodCallTransformer(
                     receiverLocal,
                     argumentsArrayLocal,
                     threadDescriptorLocal,
+                    resultInterceptorLocal,
                 )
                 // STACK: result?
             },
@@ -130,6 +157,7 @@ internal class MethodCallTransformer(
                     receiverLocal,
                     argumentsArrayLocal,
                     threadDescriptorLocal,
+                    resultInterceptorLocal,
                 )
                 // STACK: exception
                 throwException()
@@ -144,6 +172,7 @@ internal class MethodCallTransformer(
         ownerName: OwnerName?,
         argumentNames: List<AccessPath?>?,
         threadDescriptorLocal: Int,
+        resultInterceptorLocal: Int,
     ) {
         // STACK: <empty>
         loadLocal(threadDescriptorLocal)
@@ -153,11 +182,12 @@ internal class MethodCallTransformer(
         push(methodId)
         pushReceiver(receiverLocal)
         loadLocal(argumentsArrayLocal)
-        pushNull() // result interceptor
+        loadLocal(resultInterceptorLocal)
+//        pushNull() // result interceptor
 
         // STACK: descriptor, codeLocation, methodId, receiver?, argumentsArray, interceptor?
         invokeStatic(Injections::onMethodCall)
-        // STACK: deterministicCallDescriptor
+        // STACK: deterministicCallDescriptor (NOTE: Isn't the stack empty here?)
         invokeBeforeEventIfPluginEnabled("method call ${this@MethodCallTransformer.methodName}")
     }
 
@@ -167,6 +197,7 @@ internal class MethodCallTransformer(
         receiverLocal: Int?,
         argumentsArrayLocal: Int,
         threadDescriptorLocal: Int,
+        resultInterceptorLocal: Int,
     ) {
         // STACK: result?
         val resultLocal = when {
@@ -181,7 +212,7 @@ internal class MethodCallTransformer(
             loadLocal(it)
             box(returnType)
         }
-        pushNull() // result interceptor
+        loadLocal(resultInterceptorLocal)
 
         // STACK: descriptor, methodId, receiver, arguments, result?, interceptor?
         when {
@@ -203,6 +234,7 @@ internal class MethodCallTransformer(
         receiverLocal: Int?,
         argumentsArrayLocal: Int,
         threadDescriptorLocal: Int,
+        resultInterceptorLocal: Int,
     ) {
         // STACK: exception
         val exceptionLocal = newLocal(THROWABLE_TYPE)
@@ -213,7 +245,7 @@ internal class MethodCallTransformer(
         pushReceiver(receiverLocal)
         loadLocal(argumentsArrayLocal)
         loadLocal(exceptionLocal)
-        pushNull() // result interceptor
+        loadLocal(resultInterceptorLocal)
 
         // STACK: descriptor, methodId, receiver, params, exception, interceptor?
         invokeStatic(Injections::onMethodCallException)

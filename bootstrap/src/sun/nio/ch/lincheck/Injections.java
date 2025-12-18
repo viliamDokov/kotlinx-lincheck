@@ -751,6 +751,26 @@ public class Injections {
         return result.getOrThrow();
     }
 
+    public static ResultInterceptor createResultInterceptor() throws Exception {
+        return new ResultInterceptor();
+    }
+
+    public static boolean isResultIntercepted(ResultInterceptor resultInterceptor) {
+        if (resultInterceptor.isResultIntercepted()) {
+            System.out.println("INTERCEPTED");
+            System.out.println(resultInterceptor.getInterceptedResult());
+        }
+        return resultInterceptor.isResultIntercepted() || resultInterceptor.isExceptionIntercepted();
+    }
+
+    public static Object getResultOrThrow(ResultInterceptor resultInterceptor) throws Throwable {
+        if(resultInterceptor.isExceptionIntercepted()) {
+            throw resultInterceptor.getInterceptedException();
+        }
+        return resultInterceptor.getInterceptedResult();
+    }
+
+
     /**
      * Called from the instrumented code before NEW instruction
      */
