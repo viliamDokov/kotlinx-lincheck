@@ -1640,6 +1640,8 @@ internal abstract class ManagedStrategy(
         interceptor: ResultInterceptor?,
     ): Unit = threadDescriptor.runInsideIgnoredSection {
         val methodDescriptor = TRACE_CONTEXT.getMethodDescriptor(methodId)
+        println("BEFORE METHOD CALL: ${methodDescriptor.className} ${methodDescriptor.methodName}")
+
         // check if the called method is an atomics API method
         // (e.g., Atomic classes, AFU, VarHandle memory access API, etc.)
         val atomicMethodDescriptor = getAtomicMethodDescriptor(receiver, methodDescriptor.methodName)
