@@ -354,9 +354,11 @@ internal class EventStructureStrategy(
 
     private fun registerTestInstance() {
         check(!isTestInstanceRegistered)
-        val testInstance = (runner as ExecutionScenarioRunner).testInstance
+        val testInstance = (runner as? ExecutionScenarioRunner)?.testInstance
         //NOTE: The threadID may be messed up. See how this can be fixed.
-        (objectTracker as EventStructureObjectTracker).registerExternalObject(testInstance)
+        if(testInstance != null) {
+            (objectTracker as EventStructureObjectTracker).registerExternalObject(testInstance)
+        }
         isTestInstanceRegistered = true
     }
 
@@ -365,6 +367,19 @@ internal class EventStructureStrategy(
         if (threadId != eventStructure.mainThreadId && threadId != eventStructure.initThreadId) {
             eventStructure.addThreadStartEvent(threadId)
         }
+    }
+
+    override fun beforeThreadStart(
+        threadDescriptor: ThreadDescriptor,
+        startingThread: Thread,
+        startingThreadDescriptor: ThreadDescriptor
+    ) : ThreadId {
+        val newThreadId = super.beforeThreadStart(threadDescriptor, startingThread, startingThreadDescriptor)
+        if ( newThreadId != -1 || newThreadId != eventStructure.mainThreadId ) {
+            val currentThreadId = threadScheduler.getCurrentThreadId()
+            eventStructure.addThreadForkEvent(currentThreadId, setOf(newThreadId))
+        }
+        return newThreadId
     }
 
     override fun onThreadFinish(threadId: Int) {
