@@ -106,8 +106,6 @@ class MemoryModelTest {
 /* ======== Store Buffering ======== */
 
 
-    // TODO: we need to also see the (0 to 0) outcome
-    @Ignore
     @Test
     fun testSB() {
         val testScenario = scenario {
@@ -123,6 +121,7 @@ class MemoryModelTest {
             }
         }
         val outcomes: Set<Pair<Int, Int>> = setOf(
+            (0 to 0),
             (0 to 1),
             (1 to 0),
             (1 to 1)
@@ -134,8 +133,6 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testSBOpaque() {
         class TestSB {
@@ -164,8 +161,6 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun test4SB() {
         class Test4SB {
@@ -210,8 +205,6 @@ class MemoryModelTest {
     }
 
 
-    // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun test6SB() {
         class Test6SB {
@@ -640,8 +633,6 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testIriwInternal() {
         class TestIriwInternal {
@@ -714,8 +705,6 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testMpRelaxed() {
         class TestMpRelaxed {
@@ -747,8 +736,6 @@ class MemoryModelTest {
     }
 
 
-    // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testPodrw001() {
         // NOTE: this is just Store Buffering with 3 reads
@@ -846,8 +833,6 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testX001() {
         class TestX001 {
@@ -1089,8 +1074,6 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testIRIWPoaasLL() {
         class TestIRIWPoaasLL {
@@ -1129,8 +1112,6 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testIRIWPoapsLL() {
         class TestIRIWPoapsLL {
