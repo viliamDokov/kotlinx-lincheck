@@ -227,8 +227,9 @@ fun<E : ThreadEvent> Execution<E>.toMutableFrontier(): MutableExecutionFrontier<
         mutableExecutionFrontierOf(*it.toTypedArray())
     }
 
-fun<E : ThreadEvent> Execution<E>.calculateFrontier(clock: VectorClock): MutableExecutionFrontier<E> =
-    (0 until maxThreadId).mapNotNull { tid ->
+fun<E : ThreadEvent> Execution<E>.calculateFrontier(clock: VectorClock): MutableExecutionFrontier<E> {
+    check(clock.maxThreadId() <= maxThreadId)
+    return (0 until maxThreadId + 1).mapNotNull { tid ->
         val timestamp = clock[tid]
         if (timestamp >= 0)
             tid to this[tid, timestamp]
@@ -236,6 +237,7 @@ fun<E : ThreadEvent> Execution<E>.calculateFrontier(clock: VectorClock): Mutable
     }.let {
         mutableExecutionFrontierOf(*it.toTypedArray())
     }
+}
 
 fun<E : ThreadEvent> Execution<E>.buildEnumerator() = object : Enumerator<E> {
 
