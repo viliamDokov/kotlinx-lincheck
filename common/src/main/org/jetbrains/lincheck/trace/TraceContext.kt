@@ -178,7 +178,8 @@ fun TraceContext.createAndRegisterFieldDescriptor(
     fieldName: String,
     type: Types.Type,
     fieldKind: FieldKind,
-    isFinal: Boolean
+    isFinal: Boolean,
+    isVolatile: Boolean
 ): FieldDescriptor {
     // If a descriptor with the same key already exists, return the existing instance (with a proper id).
     val clazzId = createAndRegisterClassDescriptor(className).id
@@ -192,7 +193,8 @@ fun TraceContext.createAndRegisterFieldDescriptor(
         fieldName = fieldName,
         type = type,
         fieldKind = fieldKind,
-        isFinal = isFinal
+        isFinal = isFinal,
+        isVolatile = isVolatile,
     )
     fieldPool.register(descriptor)
     return descriptor
