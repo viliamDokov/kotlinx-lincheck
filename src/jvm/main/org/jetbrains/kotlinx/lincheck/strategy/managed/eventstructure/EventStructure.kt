@@ -249,6 +249,17 @@ internal class EventStructure(
         this.pinnedEvents = pinnedEvents.ensure {
             execution.containsAll(it.events)
         }
+
+        // This condition should hold. Or atleast some weaker version of it
+        // Currently it fails for ThreadStartEvent. Todo is to find out why
+//        execution.forEach { ev ->
+//            val cond = !(ev.label is ReadAccessLabel && ev.label.isResponse) || (pinnedEvents.contains(ev.readsFrom))
+//            check(cond)
+//        }
+
+        // Backtracking order
+        println("[EXPLORE] Backtrack: $event")
+        println("[EXPLORE] Execution:\n$execution")
         // check consistency of the whole execution
         _execution.checkConsistency()
 
@@ -615,6 +626,8 @@ internal class EventStructure(
                     (!pinnedEvents.contains(it) || isBlockedRequest(it))
                 }
             }
+        println(">> EVENT: $event")
+        println(">> Candidates: ${candidates.toList()}")
         return when {
             /* For read-request events, we search for the last write to
              * the same memory location in the same thread.

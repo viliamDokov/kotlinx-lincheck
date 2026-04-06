@@ -273,8 +273,8 @@ class MemoryModelTest {
             fun thread0(): Int {
                 val r0 = x.getOpaque()
                 if (r0 != 0) {
-                    val t = a.get()
-                    b.set(1)
+                    val t = a.getPlain()
+                    b.setPlain(1)
                     if (t != 0) {
                         y.setOpaque(1)
                     }
@@ -284,8 +284,8 @@ class MemoryModelTest {
             fun thread1(): Int {
                 val r1 = y.getOpaque()
                 if (r1 != 0) {
-                    if (b.get() != 0) {
-                        a.set(1)
+                    if (b.getPlain() != 0) {
+                        a.setPlain(1)
                         x.setOpaque(1)
                     }
                 }
@@ -318,8 +318,8 @@ class MemoryModelTest {
             fun thread0(): Int {
                 val r0 = x.getOpaque()
                 if (r0 != 0) {
-                    b.set(1)
-                    val t = a.get()
+                    b.setPlain(1)
+                    val t = a.getPlain()
                     if (t != 0) {
                         y.setOpaque(1)
                     }
@@ -329,8 +329,8 @@ class MemoryModelTest {
             fun thread1(): Int {
                 val r1 = y.getOpaque()
                 if (r1 != 0) {
-                    if (b.get() != 0) {
-                        a.set(1)
+                    if (b.getPlain() != 0) {
+                        a.setPlain(1)
                         x.setOpaque(1)
                     }
                 }
@@ -607,7 +607,7 @@ class MemoryModelTest {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             fun thread0(): Pair<Int, Int> {
-                a.set(1)
+                a.setPlain(1)
                 val r0 = x.getOpaque()
                 val r1 = a.getPlain()
                 y.setOpaque(1)
@@ -711,7 +711,7 @@ class MemoryModelTest {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             fun thread0() {
-                x.set(1)
+                x.setPlain(1)
                 y.setOpaque(1)
             }
             fun thread1(): Pair<Int, Int> {
@@ -998,7 +998,7 @@ class MemoryModelTest {
             fun thread1(): Int {
                 val r1 = x.getAcquire()
                 if (r1 != 0) {
-                    y.set(1)
+                    y.setPlain(1)
                 }
                 return r1
             }
@@ -1023,7 +1023,7 @@ class MemoryModelTest {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             fun thread0() {
-                y.set(1)
+                y.setPlain(1)
                 x.setRelease(1)
             }
             fun thread1(): Int {
@@ -1053,7 +1053,7 @@ class MemoryModelTest {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             fun thread0() {
-                y.set(1)
+                y.setPlain(1)
                 x.setRelease(1)
             }
             fun thread1(): Int {
@@ -1227,7 +1227,7 @@ class MemoryModelTest {
             fun thread2(): Int {
                 val r1 = z.getOpaque()
                 if (r1 != 0) {
-                    y.set(1)
+                    y.setPlain(1)
                     x.setRelease(1)
                 }
                 return r1
@@ -1286,7 +1286,7 @@ class MemoryModelTest {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             fun thread0() {
-                x.set(1)
+                x.setPlain(1)
                 y.setRelease(1)
                 y.setOpaque(2)
             }
@@ -1294,7 +1294,7 @@ class MemoryModelTest {
                 val r0 = y.getAcquire()
                 var r1 = -1
                 if (r0 == 2) {
-                    r1 = x.get()
+                    r1 = x.getPlain()
                 }
                 return r0 to r1
             }
@@ -1370,7 +1370,7 @@ class MemoryModelTest {
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
             fun thread0() {
-                a.set(1)
+                a.setPlain(1)
                 z.setRelease(1)
             }
             fun thread1(): Triple<Int, Int, Int> {

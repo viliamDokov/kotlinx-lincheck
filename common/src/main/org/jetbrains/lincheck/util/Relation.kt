@@ -34,6 +34,11 @@ fun<T> Relation<T>.unordered(x: T, y: T): Boolean {
     return (x != y) && !this(x, y) && !this(y, x)
 }
 
+//fun<T> Relation<T>.compose(relation: Relation<T>): Relation<T> { x,y ->
+    // TODO: Hmm, we need to get the range of the relation restricted to x.
+    // this(x,y)
+//}
+
 fun<T> Relation<T>.maxOrNull(x: T, y: T): T? = when {
     x == y -> x
     this(x, y) -> y

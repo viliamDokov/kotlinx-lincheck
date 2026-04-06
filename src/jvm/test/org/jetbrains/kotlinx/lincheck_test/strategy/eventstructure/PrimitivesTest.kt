@@ -354,6 +354,35 @@ class PrimitivesTest {
     }
 
     @Test
+    fun testVolatile() {
+        class Foo() {
+            @Volatile var x: Int = 0
+
+            fun threadOne() : Int {
+                return x
+            }
+            fun threadTwo() {
+                x = 1
+            }
+        }
+        val testScenario = scenario {
+            parallel {
+                thread {
+                    actor(Foo::threadOne )
+                }
+                thread {
+                    actor(Foo::threadTwo)
+                }
+            }
+        }
+        val outcomes: Set<Int> = setOf(0, 1)
+        litmusTest(Foo::class.java, testScenario, assertAlways(outcomes)) { results ->
+            getValue<Int>(results.parallelResults[0][0]!!)
+        }
+
+    }
+
+    @Test
     fun testGlobalAtomicAccesses() {
         val read = GlobalAtomicVariable::read
         val write = GlobalAtomicVariable::write

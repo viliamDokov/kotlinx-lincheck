@@ -187,6 +187,16 @@ fun MutableExtendedExecution(): MutableExtendedExecution =
             coherenceOrderComputable.value.extendedCoherenceOrder = this
         }
 
+
+    // JAM 21
+    val visibiltyOrderComputable = computable {
+        VisibilityOrder(
+            execution,
+            memoryAccessEventIndex,
+            programOrder
+        )
+    }
+
     override val extendedCoherence: Relation<AtomicThreadEvent> by extendedCoherenceComputable
 
     override val sequentialConsistencyOrderComputable = computable {

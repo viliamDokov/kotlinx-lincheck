@@ -743,7 +743,7 @@ fun InitializationLabel.asWriteAccessLabel(location: MemoryLocation): WriteAcces
             location = location,
             writeValue = getInitialValue(location),
             codeLocation = INIT_CODE_LOCATION,
-            memoryOrdering = MemoryOrdering.PLAIN, //TODO: we need to think of how to drill down the volatileness  from memory location
+            memoryOrdering = MemoryOrdering.PLAIN,  // TODO: Should we use the memory location?
         )
 
     else -> asObjectAllocationLabel(location.objID)?.asWriteAccessLabel(location)
