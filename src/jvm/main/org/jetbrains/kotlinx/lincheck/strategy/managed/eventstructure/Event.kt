@@ -23,6 +23,7 @@ package org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure
 import org.jetbrains.kotlinx.lincheck.strategy.managed.MemoryLocation
 import org.jetbrains.kotlinx.lincheck.util.*
 import org.jetbrains.lincheck.util.Covering
+import org.jetbrains.lincheck.util.MemoryOrdering
 import org.jetbrains.lincheck.util.Relation
 import org.jetbrains.lincheck.util.ensureNotNull
 import org.jetbrains.lincheck.util.equivalent
@@ -176,6 +177,35 @@ val AtomicThreadEvent.syncFrom: AtomicThreadEvent get() = run {
 val AtomicThreadEvent.readsFrom: AtomicThreadEvent get() = run {
     require(label is ReadAccessLabel)
     syncFrom
+}
+
+val AtomicThreadEvent.readsFromOpt: AtomicThreadEvent? get() = run {
+    if(label is ReadAccessLabel && label.isResponse && senders.size == 1)  senders.first()
+    else null
+}
+
+val ThreadEvent.isInit: Boolean get() = run {
+    return label is InitializationLabel
+}
+
+val AtomicThreadEvent.isAcquire: Boolean get() = run {
+    val thisLabel = label as? ReadAccessLabel ?: return@run false
+    (thisLabel.memoryOrdering == MemoryOrdering.ACQUIRE || thisLabel.memoryOrdering == MemoryOrdering.VOLATILE) && thisLabel.isResponse
+}
+
+val AtomicThreadEvent.isWrite: Boolean get() = run {
+    if(label is WriteAccessLabel || label is InitializationLabel) true else false
+}
+
+val AtomicThreadEvent.isRelease: Boolean get() = run {
+    val thisLabel = label as? WriteAccessLabel ?: return@run false
+    (thisLabel.memoryOrdering == MemoryOrdering.RELEASE || thisLabel.memoryOrdering == MemoryOrdering.VOLATILE)
+}
+
+fun AtomicThreadEvent.sameLocation(other: AtomicThreadEvent): Boolean {
+    var thisLabel =  label as? MemoryAccessLabel ?: return false
+    var otherLabel =  other.label as? MemoryAccessLabel ?: return false
+    return thisLabel.location == otherLabel.location
 }
 
 val AtomicThreadEvent.locksFrom: AtomicThreadEvent get() = run {

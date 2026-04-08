@@ -189,13 +189,13 @@ fun MutableExtendedExecution(): MutableExtendedExecution =
 
 
     // JAM 21
-    val visibiltyOrderComputable = computable {
-        VisibilityOrder(
-            execution,
-            memoryAccessEventIndex,
-            programOrder
-        )
-    }
+//    val visibiltyOrderComputable = computable {
+//        VisibilityOrder(
+//            execution,
+//            memoryAccessEventIndex,
+//            programOrder
+//        )
+//    }
 
     override val extendedCoherence: Relation<AtomicThreadEvent> by extendedCoherenceComputable
 
@@ -237,7 +237,13 @@ fun MutableExtendedExecution(): MutableExtendedExecution =
 //                approximateSequentialConsistency = false
 //            )
         ),
-        listOf(),
+        listOf(
+            JAM21Checker(
+                execution = this,
+                memoryAccessEventIndex,
+                programOrder.union { event, event1 ->  event.isInit },
+            )
+        ),
     )
 
     private val trackers = listOf(

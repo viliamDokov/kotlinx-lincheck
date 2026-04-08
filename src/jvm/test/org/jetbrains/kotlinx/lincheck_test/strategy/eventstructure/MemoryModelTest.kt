@@ -1306,7 +1306,7 @@ class MemoryModelTest {
             }
         }
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf((2 to 0))
-        litmusTest(TestMpRelacqRs::class.java, testScenario, assertNever(expectedOutcomes)) { results ->
+        litmusTest(TestMpRelacqRs::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
             getValue<Pair<Int, Int>>(results.parallelResults[1][0]!!)
         }
     }
