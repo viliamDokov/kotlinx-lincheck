@@ -236,15 +236,18 @@ internal class EventStructure(
         // add new event to current execution
         _execution.add(event)
         // do the same for blocked requests
-        for (blockedRequest in backtrackingPoint.blockedRequests) {
-            _execution.add(blockedRequest)
-            // additionally, pin blocked requests if all their predecessors are also blocked ...
-            if (blockedRequest.parent == pinnedEvents[blockedRequest.threadId]) {
-                pinnedEvents[blockedRequest.threadId] = blockedRequest
-            }
-            // ... and also block them
-            blockRequest(blockedRequest)
-        }
+
+        // TODO: We do not handle blocked requests in a good way right now.
+        // Reconsider how that should be done
+//        for (blockedRequest in backtrackingPoint.blockedRequests) {
+//            _execution.add(blockedRequest)
+//            // additionally, pin blocked requests if all their predecessors are also blocked ...
+//            if (blockedRequest.parent == pinnedEvents[blockedRequest.threadId]) {
+//                pinnedEvents[blockedRequest.threadId] = blockedRequest
+//            }
+//            // ... and also block them
+//            blockRequest(blockedRequest)
+//        }
         // set pinned events
         this.pinnedEvents = pinnedEvents.ensure {
             execution.containsAll(it.events)
@@ -265,7 +268,8 @@ internal class EventStructure(
 
         // set the replayer state
         // TODO: hack, probably need to change this to a computable
-        // We replay the events in the order that we added them
+        // We replay the events in the order that we added them:
+        // NOTE: This is dumb since blocked requests complicate this issue by quite a lot
         val replayOrdering = _execution.sortedBy { it.id }
         replayer = Replayer(replayOrdering)
     }
@@ -323,7 +327,10 @@ internal class EventStructure(
                cutEvent.threadId < event.threadId  ||
                (cutEvent.threadId == event.threadId &&  cutEvent.threadPosition <= event.threadPosition)
             }
-
+            //NOTE:
+            filter { cutEvent ->
+                !(cutEvent?.causalityClock?.observes(event) ?: false)
+            }
 
             // for already unblocked dangling requests,
             // also put their responses into the frontier
