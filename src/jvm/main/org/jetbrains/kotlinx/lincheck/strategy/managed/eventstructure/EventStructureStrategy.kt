@@ -347,6 +347,13 @@ internal class EventStructureStrategy(
         super.onThreadFinish(threadId)
     }
 
+    override fun onThreadJoin(threadDescriptor: ThreadDescriptor, joinedThread: Thread?, withTimeout: Boolean): Unit = runInsideIgnoredSection {
+        super.onThreadJoin(threadDescriptor, joinedThread, withTimeout)
+        val currentThreadId = threadScheduler.getCurrentThreadId()
+        val joinedThreadId = threadScheduler.getThreadId(joinedThread!!)
+        eventStructure.addThreadJoinEvent(currentThreadId, setOf(joinedThreadId))
+    }
+
     override fun onActorStart(iThread: Int) {
         super.onActorStart(iThread)
         // TODO: move ignored section to ManagedStrategyRunner
