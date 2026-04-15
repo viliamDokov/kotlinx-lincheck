@@ -162,7 +162,6 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: now that we use litmustTestv2, reading final variable values may be possible. Re-evaluate whether @Ignore is still needed.
     @Test
     fun testArfna() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
@@ -393,7 +392,7 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: weird crash here
+    // TODO: To fix this test, we need to make thread joins as release acquire events
     @Ignore
     @Test
     fun testFig1() {
@@ -502,6 +501,8 @@ class MemoryModelTest {
         }
     }
 
+    //TODO: This is the full fence test. Not doing that right now
+    @Ignore
     @Test
     fun testRWCSyncs() {
         val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 0, 0))
@@ -643,8 +644,6 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
-    @Ignore
     @Test
     fun testA1Reorder() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
@@ -663,7 +662,7 @@ class MemoryModelTest {
                 }
             }
             t0.join(); t1.join()
-            (r0 to r1)
+            (x.get() to y.get())
         }
     }
 
@@ -755,8 +754,6 @@ class MemoryModelTest {
     }
 
 
-    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
-    @Ignore
     @Test
     fun testLinearisation() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(2, 1, 1, 1, 1))
@@ -786,12 +783,10 @@ class MemoryModelTest {
                 }
             }
             t0.join(); t1.join(); t2.join()
-            listOf(r0, r1, r2, w.get(), z.get())
+            listOf(r0, w.get(), x.get(), y.get(), z.get())
         }
     }
 
-    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
-    @Ignore
     @Test
     fun testLinearisation2() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(2, 1, 1, 1, 1))
@@ -823,7 +818,7 @@ class MemoryModelTest {
                 }
             }
             t0.join(); t1.join(); t2.join()
-            listOf(r0, r1, r2, w.get(), z.get())
+            listOf(r0, w.get(), x.get(), y.get(), z.get())
         }
     }
 
@@ -872,8 +867,6 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
-    @Ignore
     @Test
     fun testRoachmotel() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 1, 1, 1))
@@ -904,12 +897,10 @@ class MemoryModelTest {
                 }
             }
             t0.join(); t1.join(); t2.join()
-            listOf(r0, r1, r2, r3)
+            listOf(a.get(), z.get(), x.get(), y.get())
         }
     }
 
-    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
-    @Ignore
     @Test
     fun testRoachmotel2() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 1, 1, 1))
@@ -940,12 +931,10 @@ class MemoryModelTest {
                 }
             }
             t0.join(); t1.join(); t2.join()
-            listOf(r0, r1, r2, r3)
+            listOf(a.get(), z.get(), x.get(), y.get())
         }
     }
 
-    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
-    @Ignore
     @Test
     fun testRseqWeak() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf((3 to 1))
@@ -966,16 +955,16 @@ class MemoryModelTest {
                 }
             }
             t0.join(); t1.join(); t2.join()
-            (r0 to r1)
+            (x.get() to y.get())
         }
     }
 
-    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
+    // TODO: To fix this test, we need to make thread joins as release acquire events
     @Ignore
     @Test
     fun testRseqWeak2() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf((3 to 1))
-        litmustTestv2(assertSometimes(expectedOutcomes)) {
+        litmustTestv2(assertAlways(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r0 = 0; var r1 = 0
@@ -991,7 +980,7 @@ class MemoryModelTest {
                 }
             }
             t0.join(); t1.join()
-            (r0 to r1)
+            (x.get() to y.get())
         }
     }
 
@@ -1019,8 +1008,6 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: now that we use litmustTestv2, reading final variable values is possible (e.g. x.get(), y.get() after join). Re-evaluate whether @Ignore is still needed.
-    @Ignore
     @Test
     fun testWWRRWWRRWsilpPoaaWsilpPoaa() {
         val expectedOutcomes: Set<List<Int>> = setOf(
