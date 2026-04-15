@@ -156,8 +156,6 @@ internal fun <T> createStrategy(testCfg: ModelCheckingCTestConfiguration, block:
 }
 
 internal inline fun<reified Outcome> litmustTestv2 (
-    expectedOutcomes: Set<Outcome>,
-    executionCount: Int = UNIQUE,
     outcomeVerifier: OutcomeVerifier<Outcome>,
     noinline block: () -> Outcome,
 ) {
@@ -175,15 +173,7 @@ internal inline fun<reified Outcome> litmustTestv2 (
         createStrategy(testCfg, block).use { strategy ->
             val failure = strategy.runIteration(INVOCATIONS, verifier)
             assert(failure == null) { failure.toString() }
-
-            Assert.assertEquals(expectedOutcomes, outcomes)
-            val expectedCount = when (executionCount) {
-                UNIQUE -> expectedOutcomes.size
-                UNKNOWN -> strategy.stats.consistentInvocations
-                else -> executionCount
-            }
-            Assert.assertEquals(expectedCount, strategy.stats.consistentInvocations)
-
+            outcomeVerifier(outcomes, strategy.stats.consistentInvocations)
         }
     }
 }

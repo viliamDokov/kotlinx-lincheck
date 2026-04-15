@@ -185,7 +185,7 @@ val AtomicThreadEvent.readsFromOpt: AtomicThreadEvent? get() = run {
 }
 
 val ThreadEvent.isInit: Boolean get() = run {
-    return label is InitializationLabel
+    return label is InitializationLabel || label is ObjectAllocationLabel
 }
 
 val AtomicThreadEvent.isAcquire: Boolean get() = run {
@@ -194,7 +194,7 @@ val AtomicThreadEvent.isAcquire: Boolean get() = run {
 }
 
 val AtomicThreadEvent.isWrite: Boolean get() = run {
-    if(label is WriteAccessLabel || label is InitializationLabel) true else false
+    if(label is WriteAccessLabel || label is InitializationLabel || label is ObjectAllocationLabel) true else false
 }
 
 val AtomicThreadEvent.isRelease: Boolean get() = run {

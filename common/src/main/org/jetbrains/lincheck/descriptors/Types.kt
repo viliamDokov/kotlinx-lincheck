@@ -299,6 +299,7 @@ fun KClass<*>.getType(): Type = when (this) {
     else            -> OBJECT_TYPE
 }
 
+
 fun KClass<*>.getArrayElementType(): Type = when {
     this == IntArray::class     -> INT_TYPE
     this == ByteArray::class    -> BYTE_TYPE
@@ -308,6 +309,15 @@ fun KClass<*>.getArrayElementType(): Type = when {
     this == DoubleArray::class  -> DOUBLE_TYPE
     this == CharArray::class    -> CHAR_TYPE
     this == BooleanArray::class -> BOOLEAN_TYPE
+    //TODO: add boxed types
+    this.java.componentType == Int::class.javaObjectType     -> INT_TYPE_BOXED
+    this.java.componentType == Long::class.javaObjectType    -> LONG_TYPE_BOXED
+    this.java.componentType == Double::class.javaObjectType  -> DOUBLE_TYPE_BOXED
+    this.java.componentType == Float::class.javaObjectType   -> FLOAT_TYPE_BOXED
+    this.java.componentType == Boolean::class.javaObjectType -> BOOLEAN_TYPE_BOXED
+    this.java.componentType == Byte::class.javaObjectType    -> BYTE_TYPE_BOXED
+    this.java.componentType == Short::class.javaObjectType   -> SHORT_TYPE_BOXED
+    this.java.componentType == Char::class.javaObjectType    -> CHAR_TYPE_BOXED
     this.java.isArray           -> OBJECT_TYPE // We cannot
     // TODO: should we handle atomic arrays?
     else                -> throw IllegalArgumentException("Argument is not array")

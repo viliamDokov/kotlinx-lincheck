@@ -313,7 +313,7 @@ internal class EventStructureStrategy(
         isTestInstanceRegistered = true
     }
 
-    override fun onThreadStart(threadId: Int) {
+    override fun onThreadStart(threadId: Int) = runInsideIgnoredSection {
         super.onThreadStart(threadId)
         if (threadId != eventStructure.mainThreadId && threadId != eventStructure.initThreadId) {
             eventStructure.addThreadStartEvent(threadId)
@@ -324,8 +324,8 @@ internal class EventStructureStrategy(
         threadDescriptor: ThreadDescriptor,
         startingThread: Thread,
         startingThreadDescriptor: ThreadDescriptor
-    ) : ThreadId {
-        val newThreadId = super.beforeThreadStart(threadDescriptor, startingThread, startingThreadDescriptor)
+    ) : ThreadId = threadDescriptor.runInsideIgnoredSection {
+         val newThreadId = super.beforeThreadStart(threadDescriptor, startingThread, startingThreadDescriptor)
         if ( newThreadId != -1 || newThreadId != eventStructure.mainThreadId ) {
             val currentThreadId = threadScheduler.getCurrentThreadId()
             eventStructure.addThreadForkEvent(currentThreadId, setOf(newThreadId))
@@ -333,7 +333,8 @@ internal class EventStructureStrategy(
         return newThreadId
     }
 
-    override fun onThreadFinish(threadId: Int) {
+    //TODO: Can we nest run inside ignored section calls?
+    override fun onThreadFinish(threadId: Int) = runInsideIgnoredSection {
         // TODO: refactor, make `switchCurrentThread` private again in ManagedStrategy,
         //   call overridden `onStart` and `onFinish` methods only when thread is active
         //   and the `currentThread` lock is held

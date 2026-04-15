@@ -20,14 +20,10 @@
 
 package org.jetbrains.kotlinx.lincheck_test.strategy.eventstructure
 
-import org.junit.Assert
-import org.jetbrains.kotlinx.lincheck.execution.parallelResults
 import java.lang.invoke.VarHandle
 import java.util.concurrent.atomic.*
 
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.*
-import org.jetbrains.lincheck.datastructures.actor
-import org.jetbrains.lincheck.datastructures.scenario
 import org.junit.Ignore
 
 import org.junit.Test
@@ -39,46 +35,28 @@ import kotlin.concurrent.thread
  */
 class MemoryModelTest {
 
-    private val read = SharedMemory::read
-    private val write = SharedMemory::write
-    private val compareAndSet = SharedMemory::compareAndSet
-    private val fetchAndAdd = SharedMemory::fetchAndAdd
-
-    companion object {
-        const val x = 0
-        const val y = 1
-        const val z = 2
-    }
-
     @Test
-    fun testRRWW() {
-        val testScenario = scenario {
-            parallel {
-                thread {
-                    actor(read, x)
-                    actor(read, y)
-                }
-                thread {
-                    actor(write, y, 1)
-                }
-                thread {
-                    actor(write, x, 1)
-                }
-            }
-        }
-        val outcomes: Set<Pair<Int, Int>> = setOf(
+    fun testRRRW() {
+        val expectedOutcomes: Set<Pair<Int, Int>> = setOf(
             (0 to 0),
             (0 to 1),
             (1 to 0),
-            (1 to 1)
+            (1 to 1),
         )
-        litmusTest(SharedMemory::class.java, testScenario, assertAlways(outcomes)) { results ->
-            val r1 = getValue<Int>(results.parallelResults[0][0]!!)
-            val r2 = getValue<Int>(results.parallelResults[0][1]!!)
+        litmustTestv2(assertAlways(expectedOutcomes)) {
+            val x = AtomicInteger(0)
+            val y = AtomicInteger(0)
+            var r1 = 0;
+            var r2 = 0;
+            val t1 = thread { r1 = x.get(); r2 = y.get() }
+            val t2 = thread { y.set(1) }
+            val t3 = thread { x.set(1) }
+            t1.join()
+            t2.join()
+            t3.join()
             (r1 to r2)
         }
     }
-
 
     @Test
     fun testRRWOpaque() {
@@ -86,7 +64,7 @@ class MemoryModelTest {
             (0 to 0),
             (0 to 1),
             (1 to 0),
-//            (1 to 1), TODO: fix exploration strat to unlock this outcome
+            (1 to 1),
         )
         litmustTestv2(assertAlways(expectedOutcomes)) {
             val x = AtomicInteger(0)
@@ -108,170 +86,94 @@ class MemoryModelTest {
 
     @Test
     fun testSB() {
-        val testScenario = scenario {
-            parallel {
-                thread {
-                    actor(write, x, 1)
-                    actor(read, y)
-                }
-                thread {
-                    actor(write, y, 1)
-                    actor(read, x)
-                }
-            }
-        }
         val outcomes: Set<Pair<Int, Int>> = setOf(
             (0 to 0),
             (0 to 1),
             (1 to 0),
             (1 to 1)
         )
-        litmusTest(SharedMemory::class.java, testScenario, assertAlways(outcomes)) { results ->
-            val r1 = getValue<Int>(results.parallelResults[0][1]!!)
-            val r2 = getValue<Int>(results.parallelResults[1][1]!!)
+        litmustTestv2(assertAlways(outcomes)) {
+            val x = AtomicInteger(0)
+            val y = AtomicInteger(0)
+            var r1 = 0;
+            var r2 = 0;
+            val t1 = thread { x.set(1); r1 = y.get() }
+            val t2 = thread { y.set(1); r2 = x.get() }
+            t1.join()
+            t2.join()
             (r1 to r2)
         }
     }
 
     @Test
     fun testSBOpaque() {
-        class TestSB {
+        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((0 to 0), (0 to 1), (1 to 1), (1 to 0))
+        litmustTestv2(assertAlways(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Int {
-                x.setOpaque(1)
-                return y.getOpaque()
-            }
-            fun thread1(): Int {
-                y.setOpaque(1)
-                return x.getOpaque()
-            }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestSB::thread0) }
-                thread { actor(TestSB::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((0 to 0), (0 to 1), (1 to 1), (1 to 0))
-        litmusTest(TestSB::class.java, testScenario, assertAlways(expectedOutcomes)) { results ->
-            val r0 = getValue<Int>(results.parallelResults[0][0]!!)
-            val r1 = getValue<Int>(results.parallelResults[1][0]!!)
-            r0 to r1
+            var r1 = 0;
+            var r2 = 0;
+            val t1 = thread { x.setOpaque(1); r1 = y.getOpaque() }
+            val t2 = thread { y.setOpaque(1); r2 = x.getOpaque() }
+            t1.join()
+            t2.join()
+            (r1 to r2)
         }
     }
 
     @Test
     fun test4SB() {
-        class Test4SB {
+        val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(0, 0, 0, 0))
+        litmustTestv2(assertSometimes(forbiddenOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
             val a = AtomicInteger(0)
-            fun thread0(): Int {
-                x.setOpaque(1)
-                return y.getOpaque()
-            }
-            fun thread1(): Int {
-                y.setOpaque(1)
-                return z.getOpaque()
-            }
-            fun thread2(): Int {
-                z.setOpaque(1)
-                return a.getOpaque()
-            }
-            fun thread3(): Int {
-                a.setOpaque(1)
-                return x.getOpaque()
-            }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(Test4SB::thread0) }
-                thread { actor(Test4SB::thread1) }
-                thread { actor(Test4SB::thread2) }
-                thread { actor(Test4SB::thread3) }
-            }
-        }
-        val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(0,0,0,0))
-        litmusTest(Test4SB::class.java, testScenario, assertSometimes(forbiddenOutcomes)) { results ->
-            listOf(
-                getValue<Int>(results.parallelResults[0][0]!!),
-                getValue<Int>(results.parallelResults[1][0]!!),
-                getValue<Int>(results.parallelResults[2][0]!!),
-                getValue<Int>(results.parallelResults[3][0]!!)
-            )
+            var r0 = 0; var r1 = 0; var r2 = 0; var r3 = 0
+            val t0 = thread { x.setOpaque(1); r0 = y.getOpaque() }
+            val t1 = thread { y.setOpaque(1); r1 = z.getOpaque() }
+            val t2 = thread { z.setOpaque(1); r2 = a.getOpaque() }
+            val t3 = thread { a.setOpaque(1); r3 = x.getOpaque() }
+            t0.join(); t1.join(); t2.join(); t3.join()
+            listOf(r0, r1, r2, r3)
         }
     }
 
 
     @Test
     fun test6SB() {
-        class Test6SB {
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(0, 0, 0, 0, 0, 0))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
             val a = AtomicInteger(0)
             val b = AtomicInteger(0)
             val c = AtomicInteger(0)
-            fun thread0(): Int {
-                x.setOpaque(1)
-                return y.getOpaque()
-            }
-            fun thread1(): Int {
-                y.setOpaque(1)
-                return z.getOpaque()
-            }
-            fun thread2(): Int {
-                z.setOpaque(1)
-                return a.getOpaque()
-            }
-            fun thread3(): Int {
-                a.setOpaque(1)
-                return b.getOpaque()
-            }
-            fun thread4(): Int {
-                b.setOpaque(1)
-                return c.getOpaque()
-            }
-            fun thread5(): Int {
-                c.setOpaque(1)
-                return x.getOpaque()
-            }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(Test6SB::thread0) }
-                thread { actor(Test6SB::thread1) }
-                thread { actor(Test6SB::thread2) }
-                thread { actor(Test6SB::thread3) }
-                thread { actor(Test6SB::thread4) }
-                thread { actor(Test6SB::thread5) }
-            }
-        }
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(0,0,0,0,0,0))
-        litmusTest(Test6SB::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            listOf(
-                getValue<Int>(results.parallelResults[0][0]!!),
-                getValue<Int>(results.parallelResults[1][0]!!),
-                getValue<Int>(results.parallelResults[2][0]!!),
-                getValue<Int>(results.parallelResults[3][0]!!),
-                getValue<Int>(results.parallelResults[4][0]!!),
-                getValue<Int>(results.parallelResults[5][0]!!)
-            )
+            var r0 = 0; var r1 = 0; var r2 = 0; var r3 = 0; var r4 = 0; var r5 = 0
+            val t0 = thread { x.setOpaque(1); r0 = y.getOpaque() }
+            val t1 = thread { y.setOpaque(1); r1 = z.getOpaque() }
+            val t2 = thread { z.setOpaque(1); r2 = a.getOpaque() }
+            val t3 = thread { a.setOpaque(1); r3 = b.getOpaque() }
+            val t4 = thread { b.setOpaque(1); r4 = c.getOpaque() }
+            val t5 = thread { c.setOpaque(1); r5 = x.getOpaque() }
+            t0.join(); t1.join(); t2.join(); t3.join(); t4.join(); t5.join()
+            listOf(r0, r1, r2, r3, r4, r5)
         }
     }
 
-    @Ignore
+    // TODO: now that we use litmustTestv2, reading final variable values may be possible. Re-evaluate whether @Ignore is still needed.
     @Test
     fun testArfna() {
-        class TestArfna {
+        val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
+        litmustTestv2(assertNever(forbiddenOutcomes)) {
             val a = AtomicInteger(0)
             val b = AtomicInteger(0)
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Int {
-                val r0 = x.getOpaque()
+            var r0 = 0; var r1 = 0
+            val t0 = thread {
+                r0 = x.getOpaque()
                 if (r0 != 0) {
                     val t = a.getPlain()
                     b.setPlain(1)
@@ -279,44 +181,32 @@ class MemoryModelTest {
                         y.setOpaque(1)
                     }
                 }
-                return r0
             }
-            fun thread1(): Int {
-                val r1 = y.getOpaque()
+            val t1 = thread {
+                r1 = y.getOpaque()
                 if (r1 != 0) {
                     if (b.getPlain() != 0) {
                         a.setPlain(1)
                         x.setOpaque(1)
                     }
                 }
-                return r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestArfna::thread0) }
-                thread { actor(TestArfna::thread1) }
-            }
-        }
-        // x=1 /\ y=1, should never happen. TODO: support getting final values?
-        val forbiddentOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
-        litmusTest(TestArfna::class.java, testScenario, assertNever(forbiddentOutcomes)) { results ->
-            val r0 = getValue<Int>(results.parallelResults[0][0]!!)
-            val r1 = getValue<Int>(results.parallelResults[1][0]!!)
-            r0 to r1
+            t0.join(); t1.join()
+            (x.get() to y.get())
         }
     }
 
-    @Ignore
     @Test
     fun testArfnaTransformed() {
-        class TestArfnaTransformed {
+        val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
+        litmustTestv2(assertNever(forbiddenOutcomes)) {
             val a = AtomicInteger(0)
             val b = AtomicInteger(0)
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Int {
-                val r0 = x.getOpaque()
+            var r0 = 0; var r1 = 0
+            val t0 = thread {
+                r0 = x.getOpaque()
                 if (r0 != 0) {
                     b.setPlain(1)
                     val t = a.getPlain()
@@ -324,106 +214,61 @@ class MemoryModelTest {
                         y.setOpaque(1)
                     }
                 }
-                return r0
             }
-            fun thread1(): Int {
-                val r1 = y.getOpaque()
+            val t1 = thread {
+                r1 = y.getOpaque()
                 if (r1 != 0) {
                     if (b.getPlain() != 0) {
                         a.setPlain(1)
                         x.setOpaque(1)
                     }
                 }
-                return r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestArfnaTransformed::thread0) }
-                thread { actor(TestArfnaTransformed::thread1) }
-            }
-        }
-        // x=1 /\ y=1, should never happen. TODO: support getting final values?
-        val forbiddentOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
-        litmusTest(TestArfnaTransformed::class.java, testScenario, assertNever(forbiddentOutcomes)) { results ->
-            val r0 = getValue<Int>(results.parallelResults[0][0]!!)
-            val r1 = getValue<Int>(results.parallelResults[1][0]!!)
-            r0 to r1
+            t0.join(); t1.join()
+            (x.get() to y.get())
         }
     }
 
     @Test
     fun testB() {
         //NOTE: This is just load buffering, I am not sure why the name is like that.
-        class TestB {
+        val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
+        litmustTestv2(assertNever(forbiddenOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Int {
-                val r0 = x.getOpaque()
-                y.setOpaque(1)
-                return r0
-            }
-            fun thread1(): Int {
-                val r1 = y.getOpaque()
-                x.setOpaque(1)
-                return r1
-            }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestB::thread0) }
-                thread { actor(TestB::thread1) }
-            }
-        }
-        val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
-        litmusTest(TestB::class.java, testScenario, assertNever(forbiddenOutcomes)) { results ->
-            val r0 = getValue<Int>(results.parallelResults[0][0]!!)
-            val r1 = getValue<Int>(results.parallelResults[1][0]!!)
-            r0 to r1
+            var r0 = 0; var r1 = 0
+            val t0 = thread { r0 = x.getOpaque(); y.setOpaque(1) }
+            val t1 = thread { r1 = y.getOpaque(); x.setOpaque(1) }
+            t0.join(); t1.join()
+            (r0 to r1)
         }
     }
 
     @Test
     fun testBReorder() {
-        class TestBReorder {
+        val allowedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
+        litmustTestv2(assertSometimes(allowedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Int {
-                y.setOpaque(1)
-                val r0 = x.getOpaque()
-                return r0
-            }
-            fun thread1(): Int {
-                val r1 = y.getOpaque()
-                x.setOpaque(1)
-                return r1
-            }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestBReorder::thread0) }
-                thread { actor(TestBReorder::thread1) }
-            }
-        }
-        val allowedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
-        litmusTest(TestBReorder::class.java, testScenario, assertSometimes(allowedOutcomes)) { results ->
-            val r0 = getValue<Int>(results.parallelResults[0][0]!!)
-            val r1 = getValue<Int>(results.parallelResults[1][0]!!)
-            r0 to r1
+            var r0 = 0; var r1 = 0
+            val t0 = thread { y.setOpaque(1); r0 = x.getOpaque() }
+            val t1 = thread { r1 = y.getOpaque(); x.setOpaque(1) }
+            t0.join(); t1.join()
+            (r0 to r1)
         }
     }
 
-    @Ignore
     @Test
     fun testC() {
-        // TODO: again figure out how we can read from global variables for our results.
-        class TestC {
+        val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
+        litmustTestv2(assertNever(forbiddenOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val p = AtomicInteger(0)
             val q = AtomicInteger(0)
-            fun thread0(): Int {
-                val r0 = x.getOpaque()
+            var r0 = 0; var r1 = 0
+            val t0 = thread {
+                r0 = x.getOpaque()
                 if (r0 != 0) {
                     val t = p.getPlain()
                     q.setPlain(1)
@@ -431,10 +276,9 @@ class MemoryModelTest {
                         y.setOpaque(1)
                     }
                 }
-                return r0
             }
-            fun thread1(): Int {
-                val r1 = y.getOpaque()
+            val t1 = thread {
+                r1 = y.getOpaque()
                 if (r1 != 0) {
                     val r2 = q.getPlain()
                     if (r2 != 0) {
@@ -442,34 +286,23 @@ class MemoryModelTest {
                         x.setOpaque(1)
                     }
                 }
-                return r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestC::thread0) }
-                thread { actor(TestC::thread1) }
-            }
-        }
-        val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
-        litmusTest(TestC::class.java, testScenario, assertNever(forbiddenOutcomes)) { results ->
-            val r0 = getValue<Int>(results.parallelResults[0][0]!!)
-            val r1 = getValue<Int>(results.parallelResults[1][0]!!)
-            r0 to r1
+            t0.join(); t1.join()
+            (p.get() to q.get())
         }
     }
 
-    @Ignore
     @Test
     fun testCReorder() {
-        // TODO: again figure out how we can read from global variables for our results.
-        class TestCReorder {
+        val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
+        litmustTestv2(assertNever(forbiddenOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val p = AtomicInteger(0)
             val q = AtomicInteger(0)
-            fun thread0(): Int {
-                val r0 = x.getOpaque()
+            var r0 = 0; var r1 = 0
+            val t0 = thread {
+                r0 = x.getOpaque()
                 if (r0 != 0) {
                     q.setPlain(1)
                     val t = p.getPlain()
@@ -477,10 +310,9 @@ class MemoryModelTest {
                         y.setOpaque(1)
                     }
                 }
-                return r0
             }
-            fun thread1(): Int {
-                val r1 = y.getOpaque()
+            val t1 = thread {
+                r1 = y.getOpaque()
                 if (r1 != 0) {
                     val r2 = q.getPlain()
                     if (r2 != 0) {
@@ -488,250 +320,167 @@ class MemoryModelTest {
                         x.setOpaque(1)
                     }
                 }
-                return r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestCReorder::thread0) }
-                thread { actor(TestCReorder::thread1) }
-            }
-        }
-        val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
-        litmusTest(TestCReorder::class.java, testScenario, assertNever(forbiddenOutcomes)) { results ->
-            val r0 = getValue<Int>(results.parallelResults[0][0]!!)
-            val r1 = getValue<Int>(results.parallelResults[1][0]!!)
-            r0 to r1
+            t0.join(); t1.join()
+            (p.get() to q.get())
         }
     }
 
     @Test
     fun testCoRWR() {
-        class TestCoRWR {
-            val x = AtomicInteger(0)
-            fun thread0(): Pair<Int, Int> {
-                val eax = x.getOpaque()
-                x.setOpaque(1)
-                val ebx = x.getOpaque()
-                return eax to ebx
-            }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestCoRWR::thread0) }
-            }
-        }
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 0))
-        litmusTest(TestCoRWR::class.java, testScenario, assertNever(forbiddenOutcomes)) { results ->
-            getValue<Pair<Int, Int>>(results.parallelResults[0][0]!!)
+        litmustTestv2(assertNever(forbiddenOutcomes)) {
+            val x = AtomicInteger(0)
+            var eax = 0; var ebx = 0
+            val t0 = thread {
+                eax = x.getOpaque()
+                x.setOpaque(1)
+                ebx = x.getOpaque()
+            }
+            t0.join()
+            (eax to ebx)
         }
     }
 
 
     @Test
     fun testCyc() {
-        class TestCyc {
+        val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
+        litmustTestv2(assertNever(forbiddenOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Int {
-                val r0 = x.getOpaque()
+            var r0 = 0; var r1 = 0
+            val t0 = thread {
+                r0 = x.getOpaque()
                 if (r0 != 0) {
                     y.setOpaque(1)
                 }
-                return r0
             }
-            fun thread1(): Int {
-                val r1 = y.getOpaque()
+            val t1 = thread {
+                r1 = y.getOpaque()
                 if (r1 != 0) {
                     x.setOpaque(1)
                 }
-                return r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestCyc::thread0) }
-                thread { actor(TestCyc::thread1) }
-            }
-        }
-        val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
-        litmusTest(TestCyc::class.java, testScenario, assertNever(forbiddenOutcomes)) { results ->
-            val r0 = getValue<Int>(results.parallelResults[0][0]!!)
-            val r1 = getValue<Int>(results.parallelResults[1][0]!!)
-            r0 to r1
+            t0.join(); t1.join()
+            (r0 to r1)
         }
     }
 
-    // TODO: accroding to the JAM19 paper, this behaviour should sometimes happen under the jvm, but it seem to be porf acyclic, so...
+    // TODO: according to the JAM19 paper, this behaviour should sometimes happen under the jvm, but it seems to be porf acyclic, so...
     @Ignore
     @Test
     fun testCycNa() {
-        class TestCycNa {
+        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Int {
-                val r0 = x.getPlain()
+            var r0 = 0; var r1 = 0
+            val t0 = thread {
+                r0 = x.getPlain()
                 if (r0 != 0) {
                     y.setPlain(1)
                 }
-                return r0
             }
-            fun thread1(): Int {
-                val r1 = y.getPlain()
+            val t1 = thread {
+                r1 = y.getPlain()
                 if (r1 != 0) {
                     x.setPlain(1)
                 }
-                return r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestCycNa::thread0) }
-                thread { actor(TestCycNa::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
-        litmusTest(TestCycNa::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            val r0 = getValue<Int>(results.parallelResults[0][0]!!)
-            val r1 = getValue<Int>(results.parallelResults[1][0]!!)
-            r0 to r1
+            t0.join(); t1.join()
+            (r0 to r1)
         }
     }
 
+    // TODO: weird crash here
     @Ignore
     @Test
     fun testFig1() {
-        // TODO: again figure out how we can read from global variables for our results.
-        class TestFig1 {
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 1, 1))
+        litmustTestv2(assertAlways(expectedOutcomes)) {
             val a = AtomicInteger(0)
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Pair<Int, Int> {
+            var r0 = 0; var r1 = 0; var r2 = 0
+            val t0 = thread {
                 a.setPlain(1)
-                val r0 = x.getOpaque()
-                val r1 = a.getPlain()
+                r0 = x.getOpaque()
+                r1 = a.getPlain()
                 y.setOpaque(1)
-                return r0 to r1
             }
-            fun thread1(): Int {
-                val r2 = y.getOpaque()
+            val t1 = thread {
+                r2 = y.getOpaque()
                 x.setOpaque(1)
-                return r2
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestFig1::thread0) }
-                thread { actor(TestFig1::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1,1,1))
-        litmusTest(TestFig1::class.java, testScenario, assertAlways(expectedOutcomes)) { results ->
-            val t0 = getValue<Pair<Int, Int>>(results.parallelResults[0][0]!!)
-            val r2 = getValue<Int>(results.parallelResults[1][0]!!)
-            Triple(t0.first, t0.second, r2)
+            t0.join(); t1.join()
+            Triple(a.get(), x.get(), y.get())
         }
     }
 
     @Test
     fun testIriwInternal() {
-        class TestIriwInternal {
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Pair<Int, Int> {
+            var eax0 = 0; var ebx0 = 0; var eax1 = 0; var ebx1 = 0
+            val t0 = thread {
                 x.setOpaque(1)
-                val eax = x.getOpaque()
-                val ebx = y.getOpaque()
-                return eax to ebx
+                eax0 = x.getOpaque()
+                ebx0 = y.getOpaque()
             }
-            fun thread1(): Pair<Int, Int> {
+            val t1 = thread {
                 y.setOpaque(1)
-                val eax = y.getOpaque()
-                val ebx = x.getOpaque()
-                return eax to ebx
+                eax1 = y.getOpaque()
+                ebx1 = x.getOpaque()
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestIriwInternal::thread0) }
-                thread { actor(TestIriwInternal::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,0,1,0))
-        litmusTest(TestIriwInternal::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            val t0 = getValue<Pair<Int, Int>>(results.parallelResults[0][0]!!)
-            val t1 = getValue<Pair<Int, Int>>(results.parallelResults[1][0]!!)
-            listOf(t0.first, t0.second, t1.first, t1.second)
+            t0.join(); t1.join()
+            listOf(eax0, ebx0, eax1, ebx1)
         }
     }
 
-    // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testIRIW() {
-        class TestIRIW {
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Pair<Int, Int> {
-                val eax = y.getOpaque()
-                val ebx = x.getOpaque()
-                return eax to ebx
+            var eax0 = 0; var ebx0 = 0; var eax2 = 0; var ebx2 = 0
+            val t0 = thread {
+                eax0 = y.getOpaque()
+                ebx0 = x.getOpaque()
             }
-            fun thread1() {
-                x.setOpaque(1)
+            val t1 = thread { x.setOpaque(1) }
+            val t2 = thread {
+                eax2 = x.getOpaque()
+                ebx2 = y.getOpaque()
             }
-            fun thread2(): Pair<Int, Int> {
-                val eax = x.getOpaque()
-                val ebx = y.getOpaque()
-                return eax to ebx
-            }
-            fun thread3() {
-                y.setOpaque(1)
-            }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestIRIW::thread0) }
-                thread { actor(TestIRIW::thread1) }
-                thread { actor(TestIRIW::thread2) }
-                thread { actor(TestIRIW::thread3) }
-            }
-        }
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,0,1,0))
-        litmusTest(TestIRIW::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            val t0 = getValue<Pair<Int, Int>>(results.parallelResults[0][0]!!)
-            val t2 = getValue<Pair<Int, Int>>(results.parallelResults[2][0]!!)
-            listOf(t0.first, t0.second, t2.first, t2.second)
+            val t3 = thread { y.setOpaque(1) }
+            t0.join(); t1.join(); t2.join(); t3.join()
+            listOf(eax0, ebx0, eax2, ebx2)
         }
     }
 
     @Test
     fun testMpRelaxed() {
-        class TestMpRelaxed {
+        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 0))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
+            var r0 = 0; var r1 = -1
+            val t0 = thread {
                 x.setPlain(1)
                 y.setOpaque(1)
             }
-            fun thread1(): Pair<Int, Int> {
-                val r0 = y.getOpaque()
-                var r1 = -1
+            val t1 = thread {
+                r0 = y.getOpaque()
                 if (r0 != 0) {
                     r1 = x.getPlain()
                 }
-                return r0 to r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestMpRelaxed::thread0) }
-                thread { actor(TestMpRelaxed::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 0))
-        litmusTest(TestMpRelaxed::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            getValue<Pair<Int, Int>>(results.parallelResults[1][0]!!)
+            t0.join(); t1.join()
+            (r0 to r1)
         }
     }
 
@@ -739,595 +488,407 @@ class MemoryModelTest {
     @Test
     fun testPodrw001() {
         // NOTE: this is just Store Buffering with 3 reads
-        class TestPodrw001 {
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0, 0, 0))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
-            fun thread0(): Int {
-                z.setOpaque(1)
-                return x.getOpaque()
-            }
-            fun thread1(): Int {
-                x.setOpaque(1)
-                return y.getOpaque()
-            }
-            fun thread2(): Int {
-                y.setOpaque(1)
-                return z.getOpaque()
-            }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestPodrw001::thread0) }
-                thread { actor(TestPodrw001::thread1) }
-                thread { actor(TestPodrw001::thread2) }
-            }
-        }
-        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0,0,0))
-        litmusTest(TestPodrw001::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            Triple(
-                getValue<Int>(results.parallelResults[0][0]!!),
-                getValue<Int>(results.parallelResults[1][0]!!),
-                getValue<Int>(results.parallelResults[2][0]!!)
-            )
+            var r0 = 0; var r1 = 0; var r2 = 0
+            val t0 = thread { z.setOpaque(1); r0 = x.getOpaque() }
+            val t1 = thread { x.setOpaque(1); r1 = y.getOpaque() }
+            val t2 = thread { y.setOpaque(1); r2 = z.getOpaque() }
+            t0.join(); t1.join(); t2.join()
+            Triple(r0, r1, r2)
         }
     }
 
     @Test
     fun testRWCSyncs() {
-        class TestRWCSyncs {
+        val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 0, 0))
+        litmustTestv2(assertNever(forbiddenOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
-                x.setOpaque(1)
+            var r1 = 0; var r2 = 0; var r3 = 0
+            val t0 = thread { x.setOpaque(1) }
+            val t1 = thread {
+                r1 = x.getOpaque()
+                VarHandle.fullFence()
+                r2 = y.getOpaque()
             }
-            fun thread1(): Pair<Int, Int> {
-                val r1 = x.getOpaque()
-                VarHandle.fullFence() // TODO: full fence here.
-                val r2 = y.getOpaque()
-                return r1 to r2
-            }
-            fun thread2(): Int {
+            val t2 = thread {
                 y.setOpaque(1)
                 VarHandle.fullFence()
-                return x.getOpaque()
+                r3 = x.getOpaque()
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestRWCSyncs::thread0) }
-                thread { actor(TestRWCSyncs::thread1) }
-                thread { actor(TestRWCSyncs::thread2) }
-            }
-        }
-        val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1,0,0))
-        litmusTest(TestRWCSyncs::class.java, testScenario, assertNever(forbiddenOutcomes)) { results ->
-            val t1 = getValue<Pair<Int, Int>>(results.parallelResults[1][0]!!)
-            val r1 = getValue<Int>(results.parallelResults[2][0]!!)
-            Triple(t1.first, t1.second, r1)
+            t0.join(); t1.join(); t2.join()
+            Triple(r1, r2, r3)
         }
     }
 
     @Test
     fun testWRR() {
-        class TestWRR {
-            val x = AtomicInteger(0)
-            fun thread0() {
-                x.setOpaque(1)
-            }
-            fun thread1(): Pair<Int, Int> {
-                val x2 = x.getOpaque()
-                val x3 = x.getOpaque()
-                return x2 to x3
-            }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestWRR::thread0) }
-                thread { actor(TestWRR::thread1) }
-            }
-        }
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 0))
-        litmusTest(TestWRR::class.java, testScenario, assertNever(forbiddenOutcomes)) { results ->
-            getValue<Pair<Int, Int>>(results.parallelResults[1][0]!!)
+        litmustTestv2(assertNever(forbiddenOutcomes)) {
+            val x = AtomicInteger(0)
+            var x2 = 0; var x3 = 0
+            val t0 = thread { x.setOpaque(1) }
+            val t1 = thread {
+                x2 = x.getOpaque()
+                x3 = x.getOpaque()
+            }
+            t0.join(); t1.join()
+            (x2 to x3)
         }
     }
 
     @Test
     fun testX001() {
-        class TestX001 {
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0, 1, 0))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Int {
-                x.setOpaque(1)
-                return y.getOpaque()
-            }
-            fun thread1(): Pair<Int, Int> {
+            var r0 = 0; var eax = 0; var ebx = 0
+            val t0 = thread { x.setOpaque(1); r0 = y.getOpaque() }
+            val t1 = thread {
                 y.setOpaque(1)
-                val eax = y.getOpaque()
-                val ebx = x.getOpaque()
-                return eax to ebx
+                eax = y.getOpaque()
+                ebx = x.getOpaque()
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestX001::thread0) }
-                thread { actor(TestX001::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0,1,0))
-        litmusTest(TestX001::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            val r0 = getValue<Int>(results.parallelResults[0][0]!!)
-            val t1 = getValue<Pair<Int, Int>>(results.parallelResults[1][0]!!)
-            Triple(r0, t1.first, t1.second)
+            t0.join(); t1.join()
+            Triple(r0, eax, ebx)
         }
     }
 
 
-    //TODO: again figure out the global variable thing
-    @Ignore
     @Test
     fun testX003() {
-        class TestX003 {
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(2, 2, 0))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
+            var eax = 0; var ebx = 0
+            val t0 = thread {
                 x.setOpaque(1)
                 y.setOpaque(1)
             }
-            fun thread1(): Pair<Int, Int> {
+            val t1 = thread {
                 y.setOpaque(2)
-                val eax = y.getOpaque()
-                val ebx = x.getOpaque()
-                return eax to ebx
+                eax = y.getOpaque()
+                ebx = x.getOpaque()
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestX003::thread0) }
-                thread { actor(TestX003::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(2,2,0))
-        litmusTest(TestX003::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            getValue<Pair<Int, Int>>(results.parallelResults[1][0]!!)
+            t0.join(); t1.join()
+            Triple(y.get(), eax, ebx)
         }
     }
 
-    //TODO: again figure out the global variable thing
-    @Ignore
     @Test
     fun testX006() {
-        class TestX006 {
+        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((2 to 0))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
+            var r0 = 0
+            val t0 = thread {
                 x.setOpaque(1)
                 y.setOpaque(1)
             }
-            fun thread1(): Int {
+            val t1 = thread {
                 y.setOpaque(2)
-                return x.getOpaque()
+                r0 = x.getOpaque()
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestX006::thread0) }
-                thread { actor(TestX006::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((2 to 0))
-        litmusTest(TestX006::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            getValue<Int>(results.parallelResults[1][0]!!)
+            t0.join(); t1.join()
+            (y.get() to r0)
         }
     }
 
-    //TODO: again figure out the global variable thing
-    @Ignore
     @Test
     fun testX86_2plus2W() {
-        class TestX86_2plus2W {
+        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((2 to 2))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
+            val t0 = thread {
                 x.setOpaque(2)
                 y.setOpaque(1)
             }
-            fun thread1() {
+            val t1 = thread {
                 y.setOpaque(2)
                 x.setOpaque(1)
             }
+            t0.join(); t1.join()
+            (x.get() to y.get())
         }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestX86_2plus2W::thread0) }
-                thread { actor(TestX86_2plus2W::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Pair<Int,Int>> = setOf((2 to 2))
-        litmusTest(TestX86_2plus2W::class.java, testScenario, assertSometimes(expectedOutcomes)) { _ -> Unit }
     }
 
 
-    //TODO: again figure out the global variable thing
-    @Ignore
     @Test
     fun testA1() {
-        class TestA1 {
+        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Int {
-                val r0 = y.getOpaque()
+            var r0 = 0; var r1 = 0
+            val t0 = thread {
+                r0 = y.getOpaque()
                 x.setRelease(1)
-                return r0
             }
-            fun thread1(): Int {
-                val r1 = x.getAcquire()
+            val t1 = thread {
+                r1 = x.getAcquire()
                 if (r1 != 0) {
                     y.setPlain(1)
                 }
-                return r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestA1::thread0) }
-                thread { actor(TestA1::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
-        litmusTest(TestA1::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            val r0 = getValue<Int>(results.parallelResults[0][0]!!)
-            val r1 = getValue<Int>(results.parallelResults[1][0]!!)
-            r0 to r1
+            t1.join(); t0.join()
+            (x.get() to y.get())
         }
     }
 
-    //TODO: again figure out the global variable thing
+    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
     @Ignore
     @Test
     fun testA1Reorder() {
-        class TestA1Reorder {
+        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Int {
+            var r0 = 0; var r1 = 0
+            val t0 = thread {
                 x.setRelease(1)
-                val r0 = y.getOpaque()
-                return r0
+                r0 = y.getOpaque()
             }
-            fun thread1(): Int {
-                val r1 = x.getAcquire()
+            val t1 = thread {
+                r1 = x.getAcquire()
                 if (r1 != 0) {
                     y.setPlain(1)
                 }
-                return r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestA1Reorder::thread0) }
-                thread { actor(TestA1Reorder::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
-        litmusTest(TestA1Reorder::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            val r0 = getValue<Int>(results.parallelResults[0][0]!!)
-            val r1 = getValue<Int>(results.parallelResults[1][0]!!)
-            r0 to r1
+            t0.join(); t1.join()
+            (r0 to r1)
         }
     }
 
     @Test
     fun testA3() {
-        class TestA3 {
+        val expectedOutcomes: Set<Int> = setOf(1)
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
+            var r1 = 0
+            val t0 = thread {
                 y.setPlain(1)
                 x.setRelease(1)
             }
-            fun thread1(): Int {
-                val r1 = x.getAcquire()
+            val t1 = thread {
+                r1 = x.getAcquire()
                 var r2 = 0
                 if (r1 != 0) {
                     r2 = y.getOpaque()
                 }
-                return r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestA3::thread0) }
-                thread { actor(TestA3::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Int> = setOf(1)
-        litmusTest(TestA3::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            getValue<Int>(results.parallelResults[1][0]!!)
+            t0.join(); t1.join()
+            r1
         }
     }
 
     @Test
     fun testA3Reorder() {
-        class TestA3Reorder {
+        val expectedOutcomes: Set<Int> = setOf(1)
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
+            var r1 = 0
+            val t0 = thread {
                 y.setPlain(1)
                 x.setRelease(1)
             }
-            fun thread1(): Int {
+            val t1 = thread {
                 val r2 = y.getOpaque()
-                val r1 = x.getAcquire()
-                return r1
+                r1 = x.getAcquire()
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestA3Reorder::thread0) }
-                thread { actor(TestA3Reorder::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Int> = setOf(1)
-        litmusTest(TestA3Reorder::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            getValue<Int>(results.parallelResults[1][0]!!)
+            t0.join(); t1.join()
+            r1
         }
     }
 
     @Test
     fun testIRIWPoaasLL() {
-        class TestIRIWPoaasLL {
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
-                x.setRelease(1)
+            var r1 = 0; var r2 = 0; var r3 = 0; var r4 = 0
+            val t0 = thread { x.setRelease(1) }
+            val t1 = thread { y.setRelease(1) }
+            val t2 = thread {
+                r1 = x.getAcquire()
+                r2 = y.getAcquire()
             }
-            fun thread1() {
-                y.setRelease(1)
+            val t3 = thread {
+                r3 = y.getAcquire()
+                r4 = x.getAcquire()
             }
-            fun thread2(): Pair<Int, Int> {
-                val r1 = x.getAcquire()
-                val r2 = y.getAcquire()
-                return r1 to r2
-            }
-            fun thread3(): Pair<Int, Int> {
-                val r3 = y.getAcquire()
-                val r4 = x.getAcquire()
-                return r3 to r4
-            }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestIRIWPoaasLL::thread0) }
-                thread { actor(TestIRIWPoaasLL::thread1) }
-                thread { actor(TestIRIWPoaasLL::thread2) }
-                thread { actor(TestIRIWPoaasLL::thread3) }
-            }
-        }
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,0,1,0))
-        litmusTest(TestIRIWPoaasLL::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            val t2 = getValue<Pair<Int, Int>>(results.parallelResults[2][0]!!)
-            val t3 = getValue<Pair<Int, Int>>(results.parallelResults[3][0]!!)
-            listOf(t2.first, t2.second, t3.first, t3.second)
+            t0.join(); t1.join(); t2.join(); t3.join()
+            listOf(r1, r2, r3, r4)
         }
     }
 
     @Test
     fun testIRIWPoapsLL() {
-        class TestIRIWPoapsLL {
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
-                x.setRelease(1)
+            var r1 = 0; var r2 = 0; var r3 = 0; var r4 = 0
+            val t0 = thread { x.setRelease(1) }
+            val t1 = thread { y.setRelease(1) }
+            val t2 = thread {
+                r1 = x.getAcquire()
+                r2 = y.getOpaque()
             }
-            fun thread1() {
-                y.setRelease(1)
+            val t3 = thread {
+                r3 = y.getAcquire()
+                r4 = x.getOpaque()
             }
-            fun thread2(): Pair<Int, Int> {
-                val r1 = x.getAcquire()
-                val r2 = y.getOpaque()
-                return r1 to r2
-            }
-            fun thread3(): Pair<Int, Int> {
-                val r3 = y.getAcquire()
-                val r4 = x.getOpaque()
-                return r3 to r4
-            }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestIRIWPoapsLL::thread0) }
-                thread { actor(TestIRIWPoapsLL::thread1) }
-                thread { actor(TestIRIWPoapsLL::thread2) }
-                thread { actor(TestIRIWPoapsLL::thread3) }
-            }
-        }
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,0,1,0))
-        litmusTest(TestIRIWPoapsLL::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            val t2 = getValue<Pair<Int, Int>>(results.parallelResults[2][0]!!)
-            val t3 = getValue<Pair<Int, Int>>(results.parallelResults[3][0]!!)
-            listOf(t2.first, t2.second, t3.first, t3.second)
+            t0.join(); t1.join(); t2.join(); t3.join()
+            listOf(r1, r2, r3, r4)
         }
     }
 
 
-    //TODO: again figure out the global variable thing
+    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
     @Ignore
     @Test
     fun testLinearisation() {
-        class TestLinearisation {
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(2, 1, 1, 1, 1))
+        litmustTestv2(assertNever(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val w = AtomicInteger(0)
             val z = AtomicInteger(0)
-            fun thread0(): Int {
-                val t = x.getAcquire() + y.getPlain()
-                if (t == 2) {
+            var r0 = 0; var r1 = 0; var r2 = 0
+            val t0 = thread {
+                r0 = x.getAcquire() + y.getPlain()
+                if (r0 == 2) {
                     w.setRelease(1)
                 }
-                return t
             }
-            fun thread1(): Int {
-                val r0 = w.getOpaque()
-                if (r0 != 0) {
+            val t1 = thread {
+                r1 = w.getOpaque()
+                if (r1 != 0) {
                     z.setOpaque(1)
                 }
-                return r0
             }
-            fun thread2(): Int {
-                val r1 = z.getOpaque()
-                if (r1 != 0) {
+            val t2 = thread {
+                r2 = z.getOpaque()
+                if (r2 != 0) {
                     y.setPlain(1)
                     x.setRelease(1)
                 }
-                return r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestLinearisation::thread0) }
-                thread { actor(TestLinearisation::thread1) }
-                thread { actor(TestLinearisation::thread2) }
-            }
-        }
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(2,1,1,1,1))
-        litmusTest(TestLinearisation::class.java, testScenario, assertNever(expectedOutcomes)) { results ->
-            Triple(
-                getValue<Int>(results.parallelResults[0][0]!!),
-                getValue<Int>(results.parallelResults[1][0]!!),
-                getValue<Int>(results.parallelResults[2][0]!!)
-            )
+            t0.join(); t1.join(); t2.join()
+            listOf(r0, r1, r2, w.get(), z.get())
         }
     }
 
-    //TODO: again figure out the global variable thing
+    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
     @Ignore
     @Test
     fun testLinearisation2() {
-        class TestLinearisation2 {
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(2, 1, 1, 1, 1))
+        litmustTestv2(assertNever(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val w = AtomicInteger(0)
             val z = AtomicInteger(0)
-            fun thread0(): Int {
+            var r0 = 0; var r1 = 0; var r2 = 0
+            val t0 = thread {
                 var t = x.getAcquire()
                 t = t + y.getPlain()
+                r0 = t
                 if (t == 2) {
                     w.setRelease(1)
                 }
-                return t
             }
-            fun thread1(): Int {
-                val r0 = w.getOpaque()
-                if (r0 != 0) {
+            val t1 = thread {
+                r1 = w.getOpaque()
+                if (r1 != 0) {
                     z.setOpaque(1)
                 }
-                return r0
             }
-            fun thread2(): Int {
-                val r1 = z.getOpaque()
-                if (r1 != 0) {
+            val t2 = thread {
+                r2 = z.getOpaque()
+                if (r2 != 0) {
                     y.setPlain(1)
                     x.setRelease(1)
                 }
-                return r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestLinearisation2::thread0) }
-                thread { actor(TestLinearisation2::thread1) }
-                thread { actor(TestLinearisation2::thread2) }
-            }
-        }
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(2,1,1,1,1))
-        litmusTest(TestLinearisation2::class.java, testScenario, assertNever(expectedOutcomes)) { results ->
-            Triple(
-                getValue<Int>(results.parallelResults[0][0]!!),
-                getValue<Int>(results.parallelResults[1][0]!!),
-                getValue<Int>(results.parallelResults[2][0]!!)
-            )
+            t0.join(); t1.join(); t2.join()
+            listOf(r0, r1, r2, w.get(), z.get())
         }
     }
 
     @Test
     fun testMpRelacq() {
-        class TestMpRelacq {
+        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 0))
+        litmustTestv2(assertNever(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
+            var r0 = 0; var r1 = -1
+            val t0 = thread {
                 x.setPlain(1)
                 y.setRelease(1)
             }
-            fun thread1(): Pair<Int, Int> {
-                val r0 = y.getAcquire()
-                var r1 = -1
+            val t1 = thread {
+                r0 = y.getAcquire()
                 if (r0 == 1) {
                     r1 = x.getPlain()
                 }
-                return r0 to r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestMpRelacq::thread0) }
-                thread { actor(TestMpRelacq::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 0))
-        litmusTest(TestMpRelacq::class.java, testScenario, assertNever(expectedOutcomes)) { results ->
-            getValue<Pair<Int, Int>>(results.parallelResults[1][0]!!)
+            t0.join(); t1.join()
+            (r0 to r1)
         }
     }
 
     @Test
     fun testMpRelacqRs() {
-        class TestMpRelacqRs {
+        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((2 to 0))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
+            var r0 = 0; var r1 = -1
+            val t0 = thread {
                 x.setPlain(1)
                 y.setRelease(1)
                 y.setOpaque(2)
             }
-            fun thread1(): Pair<Int, Int> {
-                val r0 = y.getAcquire()
-                var r1 = -1
+            val t1 = thread {
+                r0 = y.getAcquire()
                 if (r0 == 2) {
                     r1 = x.getPlain()
                 }
-                return r0 to r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestMpRelacqRs::thread0) }
-                thread { actor(TestMpRelacqRs::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((2 to 0))
-        litmusTest(TestMpRelacqRs::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            getValue<Pair<Int, Int>>(results.parallelResults[1][0]!!)
+            t0.join(); t1.join()
+            (r0 to r1)
         }
     }
 
-    //TODO: again figure out the global variable thing
+    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
     @Ignore
     @Test
     fun testRoachmotel() {
-        class TestRoachmotel {
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 1, 1, 1))
+        litmustTestv2(assertNever(expectedOutcomes)) {
             val a = AtomicInteger(0)
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
-            fun thread0() {
+            var r0 = 0; var r1 = 0; var r2 = 0; var r3 = 0
+            val t0 = thread {
                 z.setRelease(1)
                 a.setPlain(1)
             }
-            fun thread1(): Triple<Int, Int, Int> {
-                val r0 = x.getOpaque()
-                var r1 = 0
-                var r2 = 0
+            val t1 = thread {
+                r0 = x.getOpaque()
                 if (r0 != 0) {
                     r1 = z.getAcquire()
                     r2 = a.getPlain()
@@ -1335,48 +896,35 @@ class MemoryModelTest {
                         y.setOpaque(1)
                     }
                 }
-                return Triple(r0, r1, r2)
             }
-            fun thread2(): Int {
-                val r3 = y.getOpaque()
+            val t2 = thread {
+                r3 = y.getOpaque()
                 if (r3 != 0) {
                     x.setOpaque(1)
                 }
-                return r3
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestRoachmotel::thread0) }
-                thread { actor(TestRoachmotel::thread1) }
-                thread { actor(TestRoachmotel::thread2) }
-            }
-        }
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,1,1,1))
-        litmusTest(TestRoachmotel::class.java, testScenario, assertNever(expectedOutcomes)) { results ->
-            val t1 = getValue<Triple<Int, Int, Int>>(results.parallelResults[1][0]!!)
-            val r3 = getValue<Int>(results.parallelResults[2][0]!!)
-            listOf(t1.first, t1.second, t1.third, r3)
+            t0.join(); t1.join(); t2.join()
+            listOf(r0, r1, r2, r3)
         }
     }
 
-    //TODO: again figure out the global variable thing
+    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
     @Ignore
     @Test
     fun testRoachmotel2() {
-        class TestRoachmotel2 {
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 1, 1, 1))
+        litmustTestv2(assertNever(expectedOutcomes)) {
             val a = AtomicInteger(0)
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
-            fun thread0() {
+            var r0 = 0; var r1 = 0; var r2 = 0; var r3 = 0
+            val t0 = thread {
                 a.setPlain(1)
                 z.setRelease(1)
             }
-            fun thread1(): Triple<Int, Int, Int> {
-                val r0 = x.getOpaque()
-                var r1 = 0
-                var r2 = 0
+            val t1 = thread {
+                r0 = x.getOpaque()
                 if (r0 != 0) {
                     r1 = z.getAcquire()
                     r2 = a.getPlain()
@@ -1384,180 +932,122 @@ class MemoryModelTest {
                         y.setOpaque(1)
                     }
                 }
-                return Triple(r0, r1, r2)
             }
-            fun thread2(): Int {
-                val r3 = y.getOpaque()
+            val t2 = thread {
+                r3 = y.getOpaque()
                 if (r3 != 0) {
                     x.setOpaque(1)
                 }
-                return r3
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestRoachmotel2::thread0) }
-                thread { actor(TestRoachmotel2::thread1) }
-                thread { actor(TestRoachmotel2::thread2) }
-            }
-        }
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,1,1,1))
-        litmusTest(TestRoachmotel2::class.java, testScenario, assertNever(expectedOutcomes)) { results ->
-            val t1 = getValue<Triple<Int, Int, Int>>(results.parallelResults[1][0]!!)
-            val r3 = getValue<Int>(results.parallelResults[2][0]!!)
-            listOf(t1.first, t1.second, t1.third, r3)
+            t0.join(); t1.join(); t2.join()
+            listOf(r0, r1, r2, r3)
         }
     }
 
-    //TODO: again figure out the global variable thing
+    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
     @Ignore
     @Test
     fun testRseqWeak() {
-        class TestRseqWeak {
+        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((3 to 1))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
-                x.setOpaque(2)
-            }
-            fun thread1() {
+            var r0 = 0; var r1 = 0
+            val t0 = thread { x.setOpaque(2) }
+            val t1 = thread {
                 y.setPlain(1)
                 x.setRelease(1)
                 x.setOpaque(3)
             }
-            fun thread2(): Pair<Int, Int> {
-                val r0 = x.getAcquire()
-                var r1 = 0
+            val t2 = thread {
+                r0 = x.getAcquire()
                 if (r0 == 3) {
                     r1 = y.getPlain()
                 }
-                return r0 to r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestRseqWeak::thread0) }
-                thread { actor(TestRseqWeak::thread1) }
-                thread { actor(TestRseqWeak::thread2) }
-            }
-        }
-        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((3 to 1))
-        litmusTest(TestRseqWeak::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            getValue<Pair<Int, Int>>(results.parallelResults[2][0]!!)
+            t0.join(); t1.join(); t2.join()
+            (r0 to r1)
         }
     }
 
-    //TODO: again figure out the global variable thing
+    // TODO: now that we use litmustTestv2, reading final variable values is possible. Re-evaluate whether @Ignore is still needed.
     @Ignore
     @Test
     fun testRseqWeak2() {
-        class TestRseqWeak2 {
+        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((3 to 1))
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
+            var r0 = 0; var r1 = 0
+            val t0 = thread {
                 y.setPlain(1)
                 x.setRelease(1)
                 x.setOpaque(3)
             }
-            fun thread1(): Pair<Int, Int> {
-                val r0 = x.getAcquire()
-                var r1 = 0
+            val t1 = thread {
+                r0 = x.getAcquire()
                 if (r0 == 3) {
                     r1 = y.getPlain()
                 }
-                return r0 to r1
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestRseqWeak2::thread0) }
-                thread { actor(TestRseqWeak2::thread1) }
-            }
-        }
-        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((3 to 1))
-        litmusTest(TestRseqWeak2::class.java, testScenario, assertSometimes(expectedOutcomes)) { results ->
-            getValue<Pair<Int, Int>>(results.parallelResults[1][0]!!)
+            t0.join(); t1.join()
+            (r0 to r1)
         }
     }
 
     @Test
     fun testTotalco() {
-        class TestTotalco {
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 1, 1))
+        litmustTestv2(assertNever(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0(): Int {
-                val x2 = x.getOpaque()
+            var r0 = 0; var r1 = 0; var r2 = 0
+            val t0 = thread {
+                r0 = x.getOpaque()
                 x.setOpaque(1)
-                return x2
             }
-            fun thread1(): Int {
-                val x5 = y.getAcquire()
+            val t1 = thread {
+                r1 = y.getAcquire()
                 x.setOpaque(2)
-                return x5
             }
-            fun thread2(): Int {
-                val x5 = x.getAcquire()
+            val t2 = thread {
+                r2 = x.getAcquire()
                 y.setOpaque(1)
-                return x5
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestTotalco::thread0) }
-                thread { actor(TestTotalco::thread1) }
-                thread { actor(TestTotalco::thread2) }
-            }
-        }
-        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1,1,1))
-        litmusTest(TestTotalco::class.java, testScenario, assertNever(expectedOutcomes)) { results ->
-            Triple(
-                getValue<Int>(results.parallelResults[0][0]!!),
-                getValue<Int>(results.parallelResults[1][0]!!),
-                getValue<Int>(results.parallelResults[2][0]!!)
-            )
+            t0.join(); t1.join(); t2.join()
+            Triple(r0, r1, r2)
         }
     }
 
-    //TODO: again figure out the global variable thing
+    // TODO: now that we use litmustTestv2, reading final variable values is possible (e.g. x.get(), y.get() after join). Re-evaluate whether @Ignore is still needed.
     @Ignore
     @Test
     fun testWWRRWWRRWsilpPoaaWsilpPoaa() {
-        class TestWWRR {
+        val expectedOutcomes: Set<List<Int>> = setOf(
+            listOf(2, 2, 2, 0, 2, 0)
+        )
+        litmustTestv2(assertAlways(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
-            fun thread0() {
+            var r10 = 0; var r12 = 0; var r30 = 0; var r32 = 0
+            val t0 = thread {
                 x.setRelease(1)
                 x.setRelease(2)
             }
-            fun thread1(): Pair<Int, Int> {
-                val x0 = x.getAcquire()
-                val x2 = y.getAcquire()
-                return x0 to x2
+            val t1 = thread {
+                r10 = x.getAcquire()
+                r12 = y.getAcquire()
             }
-            fun thread2() {
+            val t2 = thread {
                 y.setRelease(1)
                 y.setRelease(2)
             }
-            fun thread3(): Pair<Int, Int> {
-                val x0 = y.getAcquire()
-                val x2 = x.getAcquire()
-                return x0 to x2
+            val t3 = thread {
+                r30 = y.getAcquire()
+                r32 = x.getAcquire()
             }
-        }
-        val testScenario = scenario {
-            parallel {
-                thread { actor(TestWWRR::thread0) }
-                thread { actor(TestWWRR::thread1) }
-                thread { actor(TestWWRR::thread2) }
-                thread { actor(TestWWRR::thread3) }
-            }
-        }
-        val expectedOutcomes: Set<List<Int>> = setOf(
-            listOf(2,2,2,0,2,0)
-        )
-        litmusTest(TestWWRR::class.java, testScenario, assertAlways(expectedOutcomes)) { results ->
-            val t1 = getValue<Pair<Int, Int>>(results.parallelResults[1][0]!!)
-            val t3 = getValue<Pair<Int, Int>>(results.parallelResults[3][0]!!)
-            listOf(t1.first, t1.second, t3.first, t3.second)
+            t0.join(); t1.join(); t2.join(); t3.join()
+            listOf(x.get(), r10, r12, y.get(), r30, r32)
         }
     }
 
