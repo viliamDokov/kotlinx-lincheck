@@ -49,7 +49,7 @@ internal fun <Outcome> assertNever(forbiddenOutcomes: Set<Outcome>): OutcomeVeri
 
 internal fun <Outcome> assertSometimes(expectedOutcomes: Set<Outcome>): OutcomeVerifier<Outcome> = { actualOutcomes, invocations ->
     val missing = expectedOutcomes - actualOutcomes
-    Assert.assertEquals("Some outcomes not detected:\n$missing\nGot:$actualOutcomes", missing.size, 0)
+    Assert.assertEquals("Some outcomes not detected:\n$missing\nGot:$actualOutcomes\n", missing.size, 0)
 }
 
 internal fun <Outcome> assertAlways(expectedOutcomes: Set<Outcome>, executionCount: Int = UNIQUE): OutcomeVerifier<Outcome> {
@@ -65,7 +65,7 @@ internal fun <Outcome> assertAlways(expectedOutcomes: Set<Outcome>, executionCou
             UNKNOWN -> invocations
             else -> executionCount
         }
-        Assert.assertEquals(expectedCount, invocations)
+        Assert.assertEquals("Wrong execution count", expectedCount, invocations)
     }
 }
 

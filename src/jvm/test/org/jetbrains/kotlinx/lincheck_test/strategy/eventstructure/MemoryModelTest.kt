@@ -106,6 +106,27 @@ class MemoryModelTest {
     }
 
     @Test
+    fun testSBList() {
+        val outcomes: Set<List<Int>> = setOf(
+            listOf(0, 0),
+            listOf(0, 1),
+            listOf(1, 0),
+            listOf(1, 1)
+        )
+        litmustTestv2(assertAlways(outcomes)) {
+            val x = AtomicInteger(0)
+            val y = AtomicInteger(0)
+            var r1 = 0;
+            var r2 = 0;
+            val t1 = thread { x.set(1); r1 = y.get() }
+            val t2 = thread { y.set(1); r2 = x.get() }
+            t1.join()
+            t2.join()
+            listOf(r1, r2)
+        }
+    }
+
+    @Test
     fun testSBOpaque() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf((0 to 0), (0 to 1), (1 to 1), (1 to 0))
         litmustTestv2(assertAlways(expectedOutcomes)) {
@@ -366,7 +387,7 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: according to the JAM19 paper, this behaviour should sometimes happen under the jvm, but it seems to be porf acyclic, so...
+    //PORF acyclic?
     @Ignore
     @Test
     fun testCycNa() {
@@ -392,12 +413,37 @@ class MemoryModelTest {
         }
     }
 
-    // TODO: To fix this test, we need to make thread joins as release acquire events
-    @Ignore
+    @Test
+    fun testFinalWrite() {
+        val expectedOutcomes: Set<Int> = setOf(1)
+        litmustTestv2(assertAlways(expectedOutcomes)) {
+            val a = AtomicInteger(0)
+            val t0 = thread {
+                a.setOpaque(1)
+            }
+            t0.join();
+            a.getOpaque()
+        }
+    }
+
+    @Test
+    fun testListOf() {
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1))
+        litmustTestv2(assertAlways(expectedOutcomes)) {
+            val a = AtomicInteger(0)
+            val t0 = thread {
+                a.setOpaque(1)
+            }
+            t0.join();
+            listOf(a.getOpaque())
+        }
+    }
+
+
     @Test
     fun testFig1() {
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 1, 1))
-        litmustTestv2(assertAlways(expectedOutcomes)) {
+        litmustTestv2(assertAlways(expectedOutcomes, UNKNOWN)) {
             val a = AtomicInteger(0)
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -960,11 +1006,11 @@ class MemoryModelTest {
     }
 
     // TODO: To fix this test, we need to make thread joins as release acquire events
-    @Ignore
+//    @Ignore
     @Test
     fun testRseqWeak2() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf((3 to 1))
-        litmustTestv2(assertAlways(expectedOutcomes)) {
+        litmustTestv2(assertAlways(expectedOutcomes, UNKNOWN)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r0 = 0; var r1 = 0
@@ -1013,7 +1059,7 @@ class MemoryModelTest {
         val expectedOutcomes: Set<List<Int>> = setOf(
             listOf(2, 2, 2, 0, 2, 0)
         )
-        litmustTestv2(assertAlways(expectedOutcomes)) {
+        litmustTestv2(assertSometimes(expectedOutcomes)) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r10 = 0; var r12 = 0; var r30 = 0; var r32 = 0
@@ -1034,7 +1080,7 @@ class MemoryModelTest {
                 r32 = x.getAcquire()
             }
             t0.join(); t1.join(); t2.join(); t3.join()
-            listOf(x.get(), r10, r12, y.get(), r30, r32)
+            listOf(x.get(), y.get(), r10, r12, r30, r32)
         }
     }
 

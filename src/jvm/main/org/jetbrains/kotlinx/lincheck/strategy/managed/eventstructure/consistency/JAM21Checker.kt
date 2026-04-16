@@ -16,6 +16,11 @@ import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.AtomicThre
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.Execution
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.MutableExtendedExecution
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.ThreadEvent
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.ThreadFinishLabel
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.ThreadForkLabel
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.ThreadJoinLabel
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.ThreadStartLabel
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.asThreadForkLabel
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.isAcquire
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.isRelease
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.isWrite
@@ -23,6 +28,7 @@ import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.locations
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.readsFrom
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.readsFromOpt
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.sameLocation
+import org.jetbrains.kotlinx.lincheck.util.ThreadId
 import org.jetbrains.lincheck.util.Computable
 import org.jetbrains.lincheck.util.Relation
 import org.jetbrains.lincheck.util.RelationMatrix
@@ -59,25 +65,55 @@ class VisibilityOrder(
     private val _events = events()
     var isIrreflexive: Boolean = false
 
+    sealed class PoopLocation: Comparable<PoopLocation> {
+        abstract val classNum: Int
+        abstract val cmp: Int
+        data class PoopMemoryLocation(val memoryLocation: MemoryLocation): PoopLocation() {
+            override val classNum = 0
+            override val cmp = memoryLocation.objID
+        }
+        data class PoopThreadId(val threadId: ThreadId): PoopLocation() {
+            override val classNum = 1
+            override val cmp = threadId
+        }
 
-    data class PoopEvent(
-        val location: MemoryLocation,
-        val event: AtomicThreadEvent,
-    ): Comparable<PoopEvent> {
-
-        override fun compareTo(other: PoopEvent): Int {
-            return compareBy<PoopEvent>({it.event}, {it.location.objID} ).compare(this, other)
+        override fun compareTo(other: PoopLocation): Int {
+            return compareBy<PoopLocation>( {it.classNum}, {it.cmp}).compare(this, other)
         }
 
     }
 
+    data class PoopEvent(
+        val location: PoopLocation,
+        val event: AtomicThreadEvent,
+    ): Comparable<PoopEvent> {
+        override fun compareTo(other: PoopEvent): Int {
+            return compareBy<PoopEvent>({it.event}, {it.location} ).compare(this, other)
+        }
 
+    }
 
     private fun events(): Iterable<PoopEvent> {
-        return memoryAccessEventIndex.locations.flatMap {
-            memoryAccessEventIndex.getWrites(it).map{foo -> PoopEvent(it, foo)} +
-            memoryAccessEventIndex.getReadResponses(it).map { foo -> PoopEvent(it, foo) }
+        val normalAccesses = memoryAccessEventIndex.locations.flatMap {
+            memoryAccessEventIndex.getWrites(it).map{foo -> PoopEvent(PoopLocation.PoopMemoryLocation(it), foo)} +
+            memoryAccessEventIndex.getReadResponses(it).map { foo -> PoopEvent(PoopLocation.PoopMemoryLocation(it), foo) }
         }
+
+        val threadOperations = execution.mapNotNull { event ->
+            when  {
+                (event.label) is ThreadForkLabel -> PoopEvent(PoopLocation.PoopThreadId((event.label as ThreadForkLabel).forkThreadIds.first()), event)
+                (event.label) is ThreadStartLabel && event.label.isResponse -> PoopEvent(PoopLocation.PoopThreadId((event.label as ThreadStartLabel).threadId), event)
+                (event.label) is ThreadFinishLabel  -> PoopEvent(PoopLocation.PoopThreadId((event.label as ThreadFinishLabel).finishedThreadIds.first()), event)
+                (event.label) is ThreadJoinLabel && event.label.isResponse && event.senders.size == 1 -> {
+                    val threadFinishEvent = event.senders.first()
+                    val threadId = threadFinishEvent.threadId
+                    PoopEvent(PoopLocation.PoopThreadId(threadId), event)
+                }
+                else -> null
+            }
+        }
+
+        return normalAccesses + threadOperations
     }
 
 
@@ -122,7 +158,6 @@ class VisibilityOrder(
                 if(poloc[event1, event2]) vo[event1, event2] = true
             }
         }
-
         // let coww = wwco(vo)
         // let cowr = wwco(vo;invrf)
         // let corw = wwco(vo;po-loc)
