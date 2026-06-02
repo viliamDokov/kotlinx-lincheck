@@ -30,7 +30,6 @@ import org.jetbrains.kotlinx.lincheck.util.CancelledResult
 import org.jetbrains.kotlinx.lincheck.util.SuspendedResult
 import org.jetbrains.kotlinx.lincheck_test.strategy.eventstructure.PrimitivesTest.SynchronizedVariable
 import org.jetbrains.lincheck.datastructures.Operation
-import org.jetbrains.lincheck.datastructures.Param
 import org.jetbrains.lincheck.datastructures.scenario
 import org.junit.Ignore
 import org.junit.Test
@@ -38,9 +37,9 @@ import org.junit.Rule
 import org.junit.rules.TestName
 import kotlin.reflect.jvm.javaMethod
 import org.jetbrains.lincheck.util.UnsafeHolder
+import kotlin.concurrent.thread
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
-import kotlin.concurrent.thread
 import kotlin.reflect.KFunction
 
 fun<K,V> ConcurrentHashMap<K, V>.removePoop(k: K) = this.remove(k)
@@ -393,7 +392,11 @@ class PrimitivesTest {
 
         companion object {
             private val updater =
-                AtomicReferenceFieldUpdater.newUpdater(VolatileReferenceVariable::class.java, String::class.java, "variable")
+                AtomicReferenceFieldUpdater.newUpdater(
+                    VolatileReferenceVariable::class.java,
+                    String::class.java,
+                    "variable"
+                )
 
             private val U = UnsafeHolder.UNSAFE
 
@@ -888,7 +891,11 @@ class PrimitivesTest {
             (SuspendedResult to false),
             (1 to true)
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r = getValueSuspended(results.parallelResults[0][0]!!)
             val b = getValue<Boolean>(results.parallelResults[1][0]!!)
             (r to b)
@@ -919,7 +926,11 @@ class PrimitivesTest {
             (SuspendedResult to false),
             (CancelledOperationException to true)
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r = getValueSuspended(results.parallelResults[0][0]!!)
             val b = getValue<Boolean>(results.parallelResults[1][0]!!)
             (r to b)
@@ -950,7 +961,11 @@ class PrimitivesTest {
             (CancelledResult to false),
             (1 to true)
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r = getValueSuspended(results.parallelResults[0][0]!!)
             val b = getValue<Boolean>(results.parallelResults[1][0]!!)
             (r to b)
@@ -983,7 +998,11 @@ class PrimitivesTest {
             (CancelledResult to true),
             // (1 to true),
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r = getValueSuspended(results.parallelResults[0][0]!!)
             val b = getValue<Boolean>(results.parallelResults[1][0]!!)
             (r to b)
@@ -1019,7 +1038,11 @@ class PrimitivesTest {
             Triple(1, true, false),
             Triple(CancelledOperationException, false, true)
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r = getValueSuspended(results.parallelResults[0][0]!!)
             val b1 = getValue<Boolean>(results.parallelResults[1][0]!!)
             val b2 = getValue<Boolean>(results.parallelResults[2][0]!!)
@@ -1051,7 +1074,11 @@ class PrimitivesTest {
             Triple(SuspendedResult, 1, true),
             Triple(1, SuspendedResult, true),
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r1 = getValueSuspended(results.parallelResults[0][0]!!)
             val r2 = getValueSuspended(results.parallelResults[1][0]!!)
             val b = getValue<Boolean>(results.parallelResults[2][0]!!)
@@ -1083,7 +1110,11 @@ class PrimitivesTest {
             Triple(1, true, false),
             Triple(2, false, true),
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r = getValueSuspended(results.parallelResults[0][0]!!)
             val b1 = getValue<Boolean>(results.parallelResults[1][0]!!)
             val b2 = getValue<Boolean>(results.parallelResults[2][0]!!)
@@ -1105,19 +1136,23 @@ class PrimitivesTest {
                 return "BAR:($b)"
             }
         }
+
         class Foo {
             var x = AtomicInteger(0)
-            @Volatile var y = Bar(0)
+            @Volatile
+            var y = Bar(0)
             fun one() {
                 x.get() == 0
                 y = Bar(1)
                 val x = y
             }
+
             fun two() {
                 y = Bar(2)
                 x.set(1)
             }
         }
+
         val testScenario = scenario {
             parallel {
                 thread {
@@ -1139,7 +1174,8 @@ class PrimitivesTest {
         // Same thing as the test above, but with strings, which work a bit differently
         class Foo {
             var x = AtomicInteger(0)
-            @Volatile var y = ""
+            @Volatile
+            var y = ""
 
             fun one() {
                 x.get() == 0
@@ -1152,6 +1188,7 @@ class PrimitivesTest {
             }
 
         }
+
         val testScenario = scenario {
             parallel {
                 thread {
@@ -1173,25 +1210,30 @@ class PrimitivesTest {
         // This test tries to force the GC to collect the external Baz(0), which is left unused after each testInvocation
         // The ObjectTracker used to rely on a weak reference to the GC'd object, which would cause trouble
         class Baz(a: Int) {
-            @Volatile var b = a
+            @Volatile
+            var b = a
             override fun toString(): String {
                 return "BAZ:($b)"
             }
         }
+
         class Foo {
             // The Baz(0) here is an external object
             // Since it is the intial value of a field of the test class
-            @Volatile var y = Baz(0)
-            fun one() : Int {
+            @Volatile
+            var y = Baz(0)
+            fun one(): Int {
                 val res = y.b
                 return 0
             }
+
             fun two() {
                 y.b = 0
                 y.b = 1
                 y.b = 2
             }
         }
+
         val testScenario = scenario {
             parallel {
                 thread {
@@ -1221,25 +1263,31 @@ class PrimitivesTest {
                 return "BAR:($b)"
             }
         }
+
         class Baz(a: Bar) {
-            @Volatile var b = a
+            @Volatile
+            var b = a
             override fun toString(): String {
                 return "BAZ:($b)"
             }
         }
+
         class Foo {
-            @Volatile var y = Baz(Bar(AtomicInteger(0)))
-            fun one() : Int {
+            @Volatile
+            var y = Baz(Bar(AtomicInteger(0)))
+            fun one(): Int {
                 y.b = Bar(AtomicInteger(1))
                 val res = y.b.b.get()
                 return res
             }
+
             fun two() {
                 y.b = Bar(AtomicInteger(2))
                 y.b.b = AtomicInteger(3)
                 y.b.b.set(4)
             }
         }
+
         val testScenario = scenario {
             parallel {
                 thread {
@@ -1250,7 +1298,7 @@ class PrimitivesTest {
                 }
             }
         }
-        val outcomes: Set<Int> = setOf(1,2,3,4)
+        val outcomes: Set<Int> = setOf(1, 2, 3, 4)
         litmusTest(Foo::class.java, testScenario, assertSame(outcomes, UNKNOWN)) { results ->
             val b1 = getValue<Int>(results.parallelResults[0][0]!!)
             return@litmusTest b1
@@ -1444,7 +1492,6 @@ class PrimitivesTest {
     }
 
 
-
     @Test
     fun testBoxedPrimitives() {
         class TestClass {
@@ -1454,6 +1501,7 @@ class PrimitivesTest {
                 x = 42_000_000
                 return x
             }
+
             fun thread1() {
                 x = "foo"
             }
@@ -2125,5 +2173,54 @@ class LocksTest {
         }
 
         litmusTest(ConcurrentHashMap::class.java, testScenario, assertSame(setOf(1), UNKNOWN)) { 1 }
+    }
+
+
+
+    @Test
+    fun testFunctionInConstructor() {
+        class Foo {
+            var x: Int = -1
+
+            constructor() {
+                funnyFunction(1)
+            }
+
+            fun one() {
+                funnyFunction(2)
+            }
+
+            fun two() {
+                funnyFunction(3)
+            }
+
+            fun three() : Int {
+                val localbox = x
+                return localbox
+            }
+
+            fun funnyFunction(v: Int) {
+                x = 2*v + v*v;
+            }
+        }
+        litmusTest(assertSame(setOf(3, 8, 15))) {
+            val foo = Foo()
+            var r = -1
+
+            val t1 = thread {
+                foo.one()
+            }
+            val t2 = thread {
+                foo.two()
+            }
+            val t3 = thread {
+                r = foo.three()
+            }
+
+            t1.join()
+            t2.join()
+            t3.join()
+            r
+        }
     }
 }
