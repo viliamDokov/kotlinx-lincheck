@@ -1327,6 +1327,7 @@ internal abstract class ManagedStrategy(
             )
             val memoryOrder = if (fieldDescriptor.isVolatile) MemoryOrdering.VOLATILE else MemoryOrdering.PLAIN
             memoryTracker!!.beforeRead(threadId, codeLocation, location, memoryOrder)
+            println("result intercpetor: $resultInterceptor")
             resultInterceptor?.interceptResult(memoryTracker!!.interceptReadResult(threadId))
         }
         return
@@ -1547,6 +1548,8 @@ internal abstract class ManagedStrategy(
 
     override fun afterNewObjectCreation(threadDescriptor: ThreadDescriptor, obj: Any): Unit =
         threadDescriptor.runInsideIgnoredSection {
+            println("NEW OBJECT CREATED $obj")
+            Exception().printStackTrace()
             if (objectTracker.shouldTrackObject(obj)) {
                 objectTracker.registerNewObject(obj)
             }

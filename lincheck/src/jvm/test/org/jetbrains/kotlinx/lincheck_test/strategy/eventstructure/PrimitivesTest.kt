@@ -54,6 +54,44 @@ class PrimitivesTest {
         }
     }
 
+    class PlainWrappedVariable {
+        private var variable = PlainPrimitiveVariable()
+
+        fun write(value: Int) {
+            variable.write(value)
+        }
+
+        fun read(): Int {
+            return variable.read()
+        }
+    }
+
+    @Test
+    fun testWrappedPlainPrimitiveAccesses() {
+
+        val write = PlainWrappedVariable::write
+        val read = PlainWrappedVariable::read
+        val testScenario = scenario {
+            parallel {
+                thread {
+                    actor(write, 1)
+                }
+                thread {
+                    actor(read)
+                }
+                thread {
+                    actor(write, 2)
+                }
+            }
+        }
+        // TODO: when we will implement various access modes,
+        //   we should probably report races on plain variables as errors (or warnings at least)
+        val outcomes: Set<Int> = setOf(0, 1, 2)
+        litmusTest(PlainWrappedVariable::class.java, testScenario, outcomes) { results ->
+            getValue<Int>(results.parallelResults[1][0]!!)
+        }
+    }
+
     @Test
     fun testPlainPrimitiveAccesses() {
 
@@ -189,6 +227,36 @@ class PrimitivesTest {
         }
     }
 
+    class AtomicLongVariable {
+        // TODO: In the future we would likely want to switch to atomicfu primitives.
+        //   However, atomicfu currently does not support various access modes that we intend to test here.
+        private val variable = AtomicLong()
+
+        fun write(value: Long) {
+            variable.set(value)
+        }
+
+        fun read(): Long {
+            return variable.get()
+        }
+
+        fun compareAndSet(expected: Long, desired: Long): Boolean {
+            return variable.compareAndSet(expected, desired)
+        }
+
+        fun addAndGet(delta: Long): Long {
+            return variable.addAndGet(delta)
+        }
+
+        fun getAndAdd(delta: Long): Long {
+            return variable.getAndAdd(delta)
+        }
+
+        fun getAndIncrement(): Long {
+            return variable.getAndIncrement()
+        }
+    }
+
     class AtomicVariable {
         // TODO: In the future we would likely want to switch to atomicfu primitives.
         //   However, atomicfu currently does not support various access modes that we intend to test here.
@@ -212,6 +280,10 @@ class PrimitivesTest {
 
         fun getAndAdd(delta: Int): Int {
             return variable.getAndAdd(delta)
+        }
+
+        fun getAndIncrement(): Int {
+            return variable.getAndIncrement()
         }
     }
 
@@ -292,6 +364,35 @@ class PrimitivesTest {
             val r1 = getValue<Int>(results.parallelResults[0][0]!!)
             val r2 = getValue<Int>(results.parallelResults[1][0]!!)
             val r3 = getValue<Int>(results.postResults[0]!!)
+            Triple(r1, r2, r3)
+        }
+    }
+
+    @Test
+    fun testGetAndIncrement() {
+        val read = AtomicLongVariable::read
+        val getAndIncrement = AtomicLongVariable::getAndIncrement
+        val testScenario = scenario {
+            parallel {
+                thread {
+                    actor(getAndIncrement)
+                }
+                thread {
+                    actor(getAndIncrement)
+                }
+            }
+            post {
+                actor(read)
+            }
+        }
+        val outcomes: Set<Triple<Long, Long, Long>> = setOf(
+            Triple(0, 1, 2),
+            Triple(1, 0, 2)
+        )
+        litmusTest(AtomicLongVariable::class.java, testScenario, outcomes) { results ->
+            val r1 = getValue<Long>(results.parallelResults[0][0]!!)
+            val r2 = getValue<Long>(results.parallelResults[1][0]!!)
+            val r3 = getValue<Long>(results.postResults[0]!!)
             Triple(r1, r2, r3)
         }
     }

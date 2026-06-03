@@ -203,6 +203,7 @@ fun createTransformationProfile(
     includeClasses: List<String> = emptyList(),
     excludeClasses: List<String> = emptyList(),
 ): TransformationProfile {
+    println("LINCHECK: Using transformation profile: $mode, include: $includeClasses, exclude: $excludeClasses")
     val defaultProfile = when (mode) {
         STRESS -> StressDefaultTransformationProfile
         TRACE_RECORDING -> TraceRecorderDefaultTransformationProfile

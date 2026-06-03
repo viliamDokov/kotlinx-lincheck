@@ -128,7 +128,7 @@ object LincheckClassFileTransformer : ClassFileTransformer {
                 classNode.accept(visitor)
             }
             return writer.toByteArray().also { transformedBytes ->
-                if (dumpTransformedSources) {
+                if (true) {
                     dumpClassBytecode(classNode.name, transformedBytes)
                 }
                 statsTracker?.saveStatistics(
@@ -149,7 +149,7 @@ object LincheckClassFileTransformer : ClassFileTransformer {
         val sw = StringWriter()
         val pw = PrintWriter(sw)
         cr.accept(TraceClassVisitor(pw), 0)
-        File("build/transformedBytecode/$className.txt")
+        File("/home/wdokov/uni/thesis/lincheck-wiliam/build/transformedBytecode/$className.txt")
             .apply { parentFile.mkdirs() }
             .writeText(sw.toString())
     }

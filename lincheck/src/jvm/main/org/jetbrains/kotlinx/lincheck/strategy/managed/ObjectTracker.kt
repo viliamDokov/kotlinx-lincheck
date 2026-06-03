@@ -500,8 +500,10 @@ open class BaseObjectTracker(
         return registerObject(ObjectTracker.ObjectKind.NEW, obj)
     }
 
-    override fun registerExternalObject(obj: Any): ObjectEntry =
-        registerObject(ObjectTracker.ObjectKind.EXTERNAL, obj)
+    override fun registerExternalObject(obj: Any): ObjectEntry {
+        println("Registering external object: $obj")
+        return registerObject(ObjectTracker.ObjectKind.EXTERNAL, obj)
+    }
 
     private fun registerObject(kind: ObjectTracker.ObjectKind, obj: Any): ObjectEntry {
         check(obj.isImmutable implies shouldTrackImmutableValues)

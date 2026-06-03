@@ -131,11 +131,14 @@ internal class EventStructureObjectTracker(private val eventStructure: EventStru
     }
 }
 
-internal fun EventStructureObjectTracker.registerValueIfAbsent(obj: OpaqueValue?): ObjectNumber =
-    when {
+internal fun EventStructureObjectTracker.registerValueIfAbsent(obj: OpaqueValue?): ObjectNumber {
+    println("Register if abseent")
+    Exception().printStackTrace()
+    return when {
         obj == null -> NULL_OBJECT_NUMBER
         else -> registerObjectIfAbsent(obj.unwrap()).objectNumber
     }
+}
 
 internal fun EventStructureObjectTracker.getValue(type: Types.Type, id: ValueID): OpaqueValue? = when (type) {
     Types.LONG_TYPE       -> id.opaque()
@@ -154,6 +157,7 @@ internal fun EventStructureObjectTracker.getValue(type: Types.Type, id: ValueID)
 }
 
 internal fun EventStructureObjectTracker.getOrRegisterValueID(type: Types.Type, value: OpaqueValue?): ValueID {
+    println("getOrRegisterValueID: $type, $value")
     if (value == null) return NULL_OBJECT_NUMBER.toLong()
     return when (type) {
         Types.LONG_TYPE       -> (value.unwrap() as Long)

@@ -81,6 +81,10 @@ internal class EventStructureStrategy(
     }
 
     override fun nextInvocation(): Boolean {
+        println("=========================================")
+        println("NEW INVOCATION")
+        println("${eventStructure.execution}")
+        println("=========================================")
         // check that we have the next invocation to explore
         return eventStructure.startNextExploration()
     }
@@ -438,6 +442,7 @@ internal class EventStructureStrategy(
         threadDescriptor.runInsideIgnoredSection {
             // In the case of eventstrcutre this object should already be registered
             if (value !== null && objectTracker.shouldTrackObject(value)) {
+                println("afterReadField: ${value.javaClass.name} $value")
                 check(objectTracker.get(value) != null)
             }
         }
