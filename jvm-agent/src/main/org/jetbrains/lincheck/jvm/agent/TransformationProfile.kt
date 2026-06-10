@@ -128,17 +128,19 @@ class TransformationConfiguration(
 
     val trackSharedMemoryAccesses: Boolean
         get() = trackRegularFieldReads  || trackStaticFieldReads  || trackArrayElementReads ||
-                trackRegularFieldWrites || trackStaticFieldWrites || trackArrayElementWrites
+                trackRegularFieldWrites || trackStaticFieldWrites || trackArrayElementWrites ||
+                trackArrayCopy
 
     var trackAllSharedMemoryAccesses: Boolean
         get() =
             trackAllFieldsReads && trackArrayElementReads &&
-            trackAllFieldsWrites && trackArrayElementWrites
+            trackAllFieldsWrites && trackArrayElementWrites && trackArrayCopy
         set(value) {
             trackAllFieldsReads = value
             trackArrayElementReads = value
             trackAllFieldsWrites = value
             trackArrayElementWrites = value
+            trackArrayCopy = value
         }
 
     val trackThreadsOperations: Boolean
@@ -562,6 +564,7 @@ object ExperimentalModelCheckingTransformationProfile : TransformationProfile {
             return config.apply {
                 trackObjectCreations = true
                 trackAllSharedMemoryAccesses = true
+                interceptReadResults = true
             }
         }
 
