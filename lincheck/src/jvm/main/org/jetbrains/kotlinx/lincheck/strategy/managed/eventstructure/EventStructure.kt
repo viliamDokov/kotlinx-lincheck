@@ -821,7 +821,11 @@ internal class EventStructure(
 
     private fun addEvent(iThread: Int, label: EventLabel, dependencies: List<AtomicThreadEvent>): AtomicThreadEvent {
         tryReplayEvent(iThread)?.let { event ->
-            check(event.label == label) { "Expected to replay event with label ${event}, but got $label" }
+            check(event.label == label) {
+                "Expected to replay event with label ${event}, but got $label\n" +
+                        "Object tracker state:\n $eventStructureObjectTracker"
+
+            }
             addEventToCurrentExecution(event)
             return event
         }

@@ -107,7 +107,7 @@ internal class EventStructureObjectTracker(private val eventStructure: EventStru
                 objDisplayNumber,
                 objKind = kind,
                 objWeakReference = objWeakReference,
-                objStrongReference = null,
+                objStrongReference = obj,
                 allocation = allocationEvent,
             )
         }
@@ -128,6 +128,12 @@ internal class EventStructureObjectTracker(private val eventStructure: EventStru
 
     override fun reset() {
         retain { (it as? EventStructureObjectEntry)?.objectKind == ObjectTracker.ObjectKind.EXTERNAL }
+    }
+
+    override fun toString(): String {
+        return objectIndex.values.flatMap { entries ->
+            entries.map { entry -> "${entry.objectNumber } -> [${entry.objectKind} ${entry.objectWeakReference.get()}]" }
+        }.joinToString("\n")
     }
 }
 
