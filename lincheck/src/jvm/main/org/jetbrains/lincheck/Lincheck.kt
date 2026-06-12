@@ -18,6 +18,7 @@ import org.jetbrains.kotlinx.lincheck.execution.ExecutionScenario
 import org.jetbrains.kotlinx.lincheck.execution.parallelResults
 import org.jetbrains.kotlinx.lincheck.runner.LambdaRunner
 import org.jetbrains.kotlinx.lincheck.strategy.managed.ManagedStrategy
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.EventStructureStrategy
 import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.kotlinx.lincheck.strategy.managed.modelchecking.ModelCheckingStrategy
 import org.jetbrains.kotlinx.lincheck.strategy.runIteration
@@ -46,8 +47,9 @@ object Lincheck {
     @JvmOverloads
     fun runConcurrentTest(
         invocations: Int = DEFAULT_INVOCATIONS,
-        block: Runnable
-    ) = runConcurrentTestInternal(invocations, LincheckSettings.DEFAULT, block)
+        experimentalModelChecking: Boolean = false,
+        block: Runnable,
+    ) = runConcurrentTestInternal(invocations, LincheckSettings.DEFAULT, experimentalModelChecking, block)
 
     /**
      * This method will explore different interleavings of the [block] body and all the threads created within it,
@@ -63,20 +65,23 @@ object Lincheck {
     internal fun runConcurrentTestInternal(
         invocations: Int = DEFAULT_INVOCATIONS,
         settings: LincheckSettings,
+        experimentalModelChecking: Boolean = false,
         block: Runnable
     ) {
-        val options = ModelCheckingOptions()
+        var options = ModelCheckingOptions()
             .analyzeStdLib(settings.analyzeStdLib)
             .loopBound(settings.loopBound)
             .recursionBound(settings.recursionBound)
             .loopIterationsBeforeThreadSwitch(settings.loopIterationsBeforeThreadSwitch)
+
+        if (experimentalModelChecking) options = options.useExperimentalModelChecking()
 
         val testCfg = options.createTestConfigurations(block::class.java)
 
         withLincheckTestContext(testCfg.instrumentationMode) {
             ensureObjectIsTransformed(block)
             val verifier = NoExceptionVerifier()
-            testCfg.createStrategy(block).use { strategy ->
+            testCfg.createStrategy(block, experimentalModelChecking).use { strategy ->
                 val failure = strategy.runIteration(invocations, verifier)
                 if (failure != null) {
                     check(strategy is ModelCheckingStrategy)
@@ -84,7 +89,7 @@ object Lincheck {
                         testCfg.enableReplayModeForIdeaPlugin()
                         runPluginReplay(
                             failure = failure,
-                            replayStrategy = testCfg.createStrategy(block),
+                            replayStrategy = testCfg.createStrategy(block, experimentalModelChecking),
                             invocations = invocations,
                             verifier = verifier,
                         )
@@ -95,10 +100,26 @@ object Lincheck {
         }
     }
 
-    private fun ManagedCTestConfiguration.createStrategy(block: Runnable): ManagedStrategy {
+    private fun ManagedCTestConfiguration.createStrategy(block: Runnable, experimentalModelChecking: Boolean): ManagedStrategy {
         val runner = LambdaRunner(timeoutMs = timeoutMs, block)
-        return ModelCheckingStrategy(runner, createSettings(), inIdeaPluginReplayMode, LincheckInstrumentation.context).also {
-            runner.initializeStrategy(it)
+        if(experimentalModelChecking) {
+            return EventStructureStrategy(
+                runner,
+                createSettings(),
+                inIdeaPluginReplayMode,
+                LincheckInstrumentation.context
+            ).also {
+                runner.initializeStrategy(it)
+            }
+        } else {
+            return ModelCheckingStrategy(
+                runner,
+                createSettings(),
+                inIdeaPluginReplayMode,
+                LincheckInstrumentation.context
+            ).also {
+                runner.initializeStrategy(it)
+            }
         }
     }
 
