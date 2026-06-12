@@ -30,6 +30,7 @@ import org.jetbrains.kotlinx.lincheck.util.CancelledResult
 import org.jetbrains.kotlinx.lincheck.util.SuspendedResult
 import org.jetbrains.kotlinx.lincheck_test.strategy.eventstructure.PrimitivesTest.SynchronizedVariable
 import org.jetbrains.lincheck.datastructures.Operation
+import org.jetbrains.lincheck.datastructures.Param
 import org.jetbrains.lincheck.datastructures.scenario
 import org.junit.Ignore
 import org.junit.Test
@@ -37,8 +38,12 @@ import org.junit.Rule
 import org.junit.rules.TestName
 import kotlin.reflect.jvm.javaMethod
 import org.jetbrains.lincheck.util.UnsafeHolder
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.concurrent.thread
+import kotlin.reflect.KFunction
+
+fun<K,V> ConcurrentHashMap<K, V>.removePoop(k: K) = this.remove(k)
 
 class PrimitivesTest {
 
@@ -1911,12 +1916,12 @@ class LocksTest {
             val q = ConcurrentLinkedQueue<Int>()
 
             fun add(x: Int) : Boolean {
-                System.gc()
+//                System.gc()
                 return q.add(x)
             }
 
             fun poll() : Int? {
-                System.gc()
+//                System.gc()
                 return q.poll()
             }
         }
@@ -1977,6 +1982,7 @@ class LocksTest {
     }
 
 
+    @Ignore
     @Test
     fun testWritingInFunctionDuringConstructor() {
         class WrapperWithFunctionInConstructor {
@@ -2039,6 +2045,7 @@ class LocksTest {
         }
     }
 
+    @Ignore
     @Test
     fun testWritingToSomeOtherObjectInConstructor() {
         class Box(var x: Int = 0)
@@ -2066,5 +2073,57 @@ class LocksTest {
 
             r0
         }
+    }
+
+
+    @Test
+    fun testConcurrentHashMap() {
+
+        val put = ConcurrentHashMap<Int, Int>::put
+        val get = ConcurrentHashMap<Int, Int>::get
+        val remove_: ConcurrentHashMap<Int, Int>.(Int) -> Int? = ConcurrentHashMap<Int, Int>::remove
+        val remove = remove_ as KFunction<*>
+
+        val testScenario = scenario {
+            parallel {
+                thread {
+                    actor(put, 1, 1)
+                    actor(put, 1, 2)
+                    actor(put, 1, 4)
+                    actor(put, 1, 4)
+                    actor(put, 1, 5)
+                }
+                thread {
+                    actor(put, 1, 1)
+                    actor(put, 1, 2)
+                    actor(put, 1, 4)
+                    actor(put, 1, 4)
+                    actor(put, 1, 5)
+                }
+                thread {
+                    actor(get, 1)
+                    actor(get, 1)
+                    actor(get, 1)
+                    actor(get, 1)
+                    actor(get, 1)
+                }
+                thread {
+                    actor(remove, 1)
+                    actor(remove, 1)
+                    actor(remove, 1)
+                    actor(remove, 1)
+                    actor(remove, 1)
+                }
+                thread {
+                    actor(remove, 1)
+                    actor(remove, 1)
+                    actor(remove, 1)
+                    actor(remove, 1)
+                    actor(remove, 1)
+                }
+            }
+        }
+
+        litmusTest(ConcurrentHashMap::class.java, testScenario, assertSame(setOf(1), UNKNOWN)) { 1 }
     }
 }

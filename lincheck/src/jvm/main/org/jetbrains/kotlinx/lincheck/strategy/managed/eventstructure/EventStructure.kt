@@ -213,6 +213,7 @@ internal class EventStructure(
     }
 
     private fun resetExploration(backtrackingPoint: BacktrackingPoint) {
+//        println("RESETTING TO: ${backtrackingPoint.event} ${backtrackingPoint.event.dependencies.joinToString { it.toString() }}")
         // get the event to backtrack to
         val event = backtrackingPoint.event.ensure {
             it.label is InitializationLabel || it.label.isResponse
@@ -231,6 +232,7 @@ internal class EventStructure(
         // do the same for blocked requests
 
         for (blockedRequest in backtrackingPoint.blockedRequests) {
+//            println("Resetting blocked request $blockedRequest with parent ${blockedRequest.parent}")
             _execution.add(blockedRequest)
             // additionally, pin blocked requests if all their predecessors are also blocked ...
             if (blockedRequest.parent == pinnedEvents[blockedRequest.threadId]) {
@@ -243,6 +245,10 @@ internal class EventStructure(
         this.pinnedEvents = pinnedEvents.ensure {
             execution.containsAll(it.events)
         }
+
+
+//        println("Pinned events:\n${this.pinnedEvents.toExecution()}")
+//        println("...............................................................")
         // check consistency of the whole execution
         _execution.checkConsistency()
 
@@ -305,6 +311,7 @@ internal class EventStructure(
             cut(event)
         }
 
+//        println("Creating backtracking point for $event to ${event.dependencies}" )
         val frontier = execution.toMutableFrontier().apply {
             // We need to keep events in the frontier that are either have: id <= (parent.id)
             // or are observed by the event, a la GenMC
@@ -337,6 +344,13 @@ internal class EventStructure(
             pinnedEvents = newPinnedEvents,
             blockedRequests = blockedRequests,
         )
+//
+//        Exception().printStackTrace()
+//        println("Creating backtracking point for $event with deps ${event.dependencies}")
+//        println("Conflicts: $conflicts")
+//        println("Dangling requests: $danglingRequests")
+//        println("blocked: ${blockedRequests}")
+//        println("Frontier:\n${frontier.toExecution()}")
         backtrackingPoints.add(backtrackingPoint)
     }
 
@@ -448,12 +462,14 @@ internal class EventStructure(
         // Check if the added event is replayed event.
         val isReplayedEvent = inReplayPhase(event.threadId)
         // Update current execution and replayed frontier.
+//        println("Adding event: $event, $isReplayedEvent")
         if (!isReplayedEvent) {
             _execution.add(event)
         }
         playedFrontier.update(event)
         // Unblock the thread if the unblocking response was added.
         if (event.label.isResponse && event.label.isBlocking && isBlockedRequest(event.request!!)) {
+//            println("[UNBLOCK] Adding unblocking response: ${event} + ${event.syncFrom} -> ${event.request}")
             unblockRequest(event.request!!)
         }
         // If we are still in replay phase, but the added event is not a replayed event,
@@ -525,6 +541,7 @@ internal class EventStructure(
 
     // should only be called in replay phase!
     fun canReplayNextEvent(iThread: Int): Boolean {
+//        println("Next event to play: ${replayer.currentEvent}")
         return iThread == replayer.currentEvent?.threadId
     }
 
@@ -718,15 +735,18 @@ internal class EventStructure(
      */
     private fun addSynchronizedEvents(event: AtomicThreadEvent): List<AtomicThreadEvent> {
         val candidates = synchronizationCandidates(event)
+//        println("[CANDIDATE] Synchronization candidates for $event: ${candidates.toList()}")
         val syncEvents = when (event.label.syncType) {
             SynchronizationType.Binary -> addBinarySynchronizedEvents(event, candidates)
             SynchronizationType.Barrier -> addBarrierSynchronizedEvents(event, candidates)
             else -> return listOf()
         }
+//        println("[SYNC] Sync events sync for $event: ${syncEvents}")
         // if there are responses to blocked dangling requests, then set the response of one of these requests
         for (syncEvent in syncEvents) {
             val blockedRequest = syncEvent.parent?.takeIf { isBlockedRequest(it) }
                 ?: continue
+//            println("Setting unblocking response for $blockedRequest")
             if (!hasUnblockingResponse(blockedRequest)) {
                 setUnblockingResponse(syncEvent)
                 // mark corresponding backtracking point as visited;

@@ -81,6 +81,10 @@ internal class EventStructureStrategy(
     }
 
     override fun nextInvocation(): Boolean {
+//        println("================================================")
+//        println("NEXT INVOCATION : ${stats.totalInvocations} ${eventStructure.execution.size}")
+//        println("${eventStructure.execution}")
+//        println("================================================")
         // check that we have the next invocation to explore
         return eventStructure.startNextExploration()
     }
