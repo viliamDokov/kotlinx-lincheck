@@ -181,4 +181,41 @@ class MemoryModelTest {
         }
     }
 
+    @Test
+    fun testFoo() {
+        // Random example from the RCMC paper
+        val outcomes : Set<Pair<Int, Int>> = setOf(
+            2 to 0,
+            1 to 0,
+            0 to 1,
+            1 to 1,
+            2 to 1,
+        )
+        litmusTest(assertSame(outcomes)) {
+            val x = AtomicInteger(0)
+            val y = AtomicInteger(0)
+
+            var r0: Int = -1;
+            var r1: Int = -1;
+
+            val t1 = thread {
+                x.set(1)
+                r0 = y.get();
+            }
+            val t2 = thread {
+                y.set(1)
+                r1 = x.get()
+            }
+            val t3 = thread {
+                y.set(2)
+            }
+
+            t1.join()
+            t2.join()
+            t3.join()
+
+            r0 to r1
+        }
+    }
+
 }
