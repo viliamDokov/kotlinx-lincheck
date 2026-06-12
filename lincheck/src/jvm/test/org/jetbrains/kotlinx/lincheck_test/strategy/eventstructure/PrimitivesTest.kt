@@ -37,6 +37,7 @@ import org.junit.Rule
 import org.junit.rules.TestName
 import kotlin.reflect.jvm.javaMethod
 import org.jetbrains.lincheck.util.UnsafeHolder
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.concurrent.thread
 
 class PrimitivesTest {
@@ -1867,6 +1868,7 @@ class LocksTest {
 
             @Synchronized
             fun poll() : Int? {
+                list.shuffle()
                 if(list.isEmpty()) return null
                 return list.removeAt(0)
             }
@@ -1899,6 +1901,170 @@ class LocksTest {
             val r0 = getValue<Int?>(results.parallelResults[1][0]!!)
             val r1 = getValue<Int?>(results.parallelResults[1][1]!!)
             r0 to r1
+        }
+    }
+
+    @Test
+    fun testConcurrentLinkedQueue() {
+
+        class ConcurrentQueue {
+            val q = ConcurrentLinkedQueue<Int>()
+
+            fun add(x: Int) : Boolean {
+                System.gc()
+                return q.add(x)
+            }
+
+            fun poll() : Int? {
+                System.gc()
+                return q.poll()
+            }
+        }
+
+        val testScenario = scenario {
+            parallel {
+                thread {
+                    actor(ConcurrentQueue::poll)
+                }
+                thread {
+                    actor(ConcurrentQueue::add, 0)
+                }
+                thread {
+                    actor(ConcurrentQueue::add, 1)
+                    actor(ConcurrentQueue::add, 2)
+                }
+            }
+        }
+
+        litmusTest(ConcurrentQueue::class.java, testScenario, assertSame(setOf(1), UNKNOWN)) { 1 }
+    }
+
+
+    @Test
+    fun testGC() {
+        class Box(val x: Int) {}
+        litmusTest(assertSame(setOf(null, 0, 42_000_000), UNKNOWN)) {
+            var x: Box? = Box(0)
+            var r0 : Int? = -1
+
+            val t1 = thread {
+                System.gc()
+                System.gc()
+                x = Box(42_000_000)
+                System.gc()
+                System.gc()
+            }
+            val t2 = thread {
+                System.gc()
+                System.gc()
+                x = null
+                System.gc()
+                System.gc()
+            }
+            val t3 = thread {
+                System.gc()
+                System.gc()
+                r0 = x?.x
+                System.gc()
+                System.gc()
+            }
+
+            t1.join()
+            t2.join()
+            t3.join()
+            r0
+        }
+    }
+
+
+    @Test
+    fun testWritingInFunctionDuringConstructor() {
+        class WrapperWithFunctionInConstructor {
+            var x : Int = 0;
+
+            constructor(value: Int) {
+                functionToCallInConstructor(value)
+            }
+
+            fun functionToCallInConstructor(value: Int) {
+                x = value
+            }
+        }
+
+        val outcomes = setOf(0,1)
+        litmusTest(assertSame(outcomes, UNKNOWN)) {
+            var w : WrapperWithFunctionInConstructor? = null
+            var r0 : Int = -1
+
+            val t1 = thread {
+                w = WrapperWithFunctionInConstructor(1)
+            }
+            val t2 = thread {
+                r0 = w?.x ?: 0
+            }
+
+            t1.join()
+            t2.join()
+
+            r0
+        }
+    }
+
+    @Test
+    fun testFunctionNotInConstructor() {
+        class WrapperThatWritesInConstructor {
+            var x : Int = 0;
+
+            constructor(value: Int) {
+                x = value
+            }
+        }
+
+        val outcomes = setOf(0,1)
+        litmusTest(assertSame(outcomes, UNKNOWN)) {
+            var w : WrapperThatWritesInConstructor? = null
+            var r0 : Int = -1
+
+            val t1 = thread {
+                w = WrapperThatWritesInConstructor(1)
+            }
+            val t2 = thread {
+                r0 = w?.x ?: 0
+            }
+
+            t1.join()
+            t2.join()
+
+            r0
+        }
+    }
+
+    @Test
+    fun testWritingToSomeOtherObjectInConstructor() {
+        class Box(var x: Int = 0)
+        class Writer {
+            constructor(box: Box, value: Int) {
+                box.x = value
+            }
+        }
+
+        val outcomes = setOf(0,1,42)
+        litmusTest(assertSame(outcomes, UNKNOWN)) {
+            var b = Box(0)
+            var r0 : Int = -1
+
+            val t2 = thread {
+                r0 = b.x
+            }
+            val t1 = thread {
+                Writer(b, 42)
+                Writer(b, 1)
+            }
+
+            t1.join()
+            t2.join()
+
+            r0
         }
     }
 }
