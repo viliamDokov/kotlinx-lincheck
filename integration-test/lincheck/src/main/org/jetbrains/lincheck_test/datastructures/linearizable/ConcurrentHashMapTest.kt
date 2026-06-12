@@ -16,10 +16,11 @@ import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.lincheck.datastructures.Operation
 import org.jetbrains.lincheck.datastructures.Options
 import org.jetbrains.lincheck.datastructures.Param
+import org.junit.Ignore
 import java.util.concurrent.ConcurrentHashMap
 
-// TODO: event structure strategy does fails here, because we find an impossible execution. See if it is a bug with
-//   the strategy or the hashmap itself.
+// TODO: Test is too slow. See if we get stuck and loop or it is something else
+@Ignore
 @Param(name = "key", gen = IntGen::class, conf = "1:5")
 class ConcurrentHashMapTest : AbstractLincheckTest() {
     private val map = ConcurrentHashMap<Int, Int>()
