@@ -17,7 +17,6 @@ import org.jetbrains.lincheck.datastructures.verifier.SerializabilityVerifier
 import org.junit.Ignore
 
 
-@Ignore
 class SerializableQueueTest : AbstractLincheckTest() {
     private val q = SerializableIntQueue()
 
