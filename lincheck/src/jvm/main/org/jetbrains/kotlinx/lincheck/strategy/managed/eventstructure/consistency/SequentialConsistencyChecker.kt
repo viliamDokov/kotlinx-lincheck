@@ -385,7 +385,7 @@ open class ExecutionOrder(
 class ExecutionOrderFast(
     override val execution: Execution<AtomicThreadEvent>,
     override val memoryAccessEventIndex: AtomicMemoryAccessEventIndex,
-    val causalGraph: Graph<AtomicThreadEvent>,
+    val causalGraph: CausalGraph,
     val eco: ExtendedCoherenceOrder,
     override val approximation: Relation<AtomicThreadEvent>,
 ) : ExecutionOrder(execution, memoryAccessEventIndex, approximation) {
@@ -398,12 +398,23 @@ class ExecutionOrderFast(
         get() = _ordering
 
     fun adjacent(node: AtomicThreadEvent) : Sequence<AtomicThreadEvent> {
-        var extra = emptySequence<AtomicThreadEvent>()
+        val seq = mutableListOf<AtomicThreadEvent>()
+        eco.adjacentForEach(node) { n -> seq.add(n) }
+        causalGraph.adjacentForEach(node) { n -> seq.add(n) }
         if ( node.label.isRequest && node.label is WaitLabel ) {
             val resp = execution.getResponse(node)?.notifiedBy
-            if (resp != null) extra = sequenceOf(resp!!)
+            if (resp != null) seq.add(resp)
         }
-        return eco.adjacent(node) + causalGraph.adjacent(node) + extra
+        return seq.asSequence()
+    }
+
+    inline fun forEachAdjacent(node: AtomicThreadEvent, block : (AtomicThreadEvent) -> Unit) {
+        eco.adjacentForEach(node) { block(it) }
+        causalGraph.adjacentForEach(node) { block(it) }
+        if (node.label.isRequest && node.label is WaitLabel ) {
+            val resp = execution.getResponse(node)?.notifiedBy
+            if (resp != null) block(resp)
+        }
     }
 
     override fun invoke(x: AtomicThreadEvent, y: AtomicThreadEvent): Boolean {
@@ -472,8 +483,8 @@ class ExecutionOrderFast(
                 queue.add(Pair(false, child))
             }
 
-            for (neighbour in adjacent(node)) {
-                if (neighbour == child) continue // TODO: maybe add assert that the child is always a neighbour?
+            forEachAdjacent(node) { neighbour ->
+                if (neighbour == child) return@forEachAdjacent // TODO: maybe add assert that the child is always a neighbour?
 
                 // To handle atomic events, we add the start of the execution
                 var start: AtomicThreadEvent = neighbour;
@@ -481,7 +492,7 @@ class ExecutionOrderFast(
                     start = start.parent!!
                 }
 
-                if (start == node) continue
+                if (start == node) return@forEachAdjacent
                 queue.add(Pair(false, start))
             }
         }

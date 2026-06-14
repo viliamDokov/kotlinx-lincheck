@@ -43,6 +43,12 @@ class CoherenceChecker : ConsistencyChecker<AtomicThreadEvent, MutableExtendedEx
 
 }
 
+data class CoherenceEntry(
+    val coherence: CoherenceList,
+    val positions: List<Int>,
+    val enumerator: Enumerator<AtomicThreadEvent>,
+)
+
 class CoherenceOrder(
     val execution: Execution<AtomicThreadEvent>,
     val memoryAccessEventIndex: AtomicMemoryAccessEventIndex,
@@ -54,13 +60,12 @@ class CoherenceOrder(
 
     private var consistent: Boolean = true
 
-    private data class Entry(
-        val coherence: CoherenceList,
-        val positions: List<Int>,
-        val enumerator: Enumerator<AtomicThreadEvent>,
-    )
+    var enumerator = execution.buildEnumerator()
+    val causalGraph = CausalGraph(execution, enumerator)
+//    val executionOrder = ExecutionOrderFast()
 
-    private val map = mutableMapOf<MemoryLocation, Entry>()
+
+    private val map = mutableMapOf<MemoryLocation, CoherenceEntry>()
 
     override fun invoke(x: AtomicThreadEvent, y: AtomicThreadEvent): Boolean {
         val location = getLocationForSameLocationWriteAccesses(x, y)
@@ -81,16 +86,18 @@ class CoherenceOrder(
     }
 
     override fun reset() {
-//        map.clear()
+        map.clear()
         consistent = true
     }
 
     override fun compute() {
         check(map.isEmpty())
 
-        val causalGraph = execution.buildGraph(causalityOrder, true)
+        enumerator = execution.buildEnumerator()
+        causalGraph.reset(execution, enumerator)
+        causalGraph.buildCausalGraph(causalityOrder, true)
 
-        generate(execution, memoryAccessEventIndex, rmwChainsStorage, writesOrder)
+        CoherenceOrderOption.generate( memoryAccessEventIndex, rmwChainsStorage, writesOrder)
             .forEach { coherence ->
                 val extendedCoherence = ExtendedCoherenceOrder(execution, memoryAccessEventIndex,
                     writesOrder = causalityOrder union coherence
@@ -114,15 +121,30 @@ class CoherenceOrder(
         // if we reached this point, then none of the generated coherence orderings is consistent
         consistent = false
     }
+}
 
+
+class CoherenceOrderOption(val writesOrder: Relation<AtomicThreadEvent>) : Relation<AtomicThreadEvent> {
+
+    internal val map = mutableMapOf<MemoryLocation, CoherenceEntry>()
+
+    override fun invoke(x: AtomicThreadEvent, y: AtomicThreadEvent): Boolean {
+        val location = getLocationForSameLocationWriteAccesses(x, y)
+            ?: return false
+        val (_, positions, enumerator) = map[location]
+            ?: return writesOrder(x, y)
+        return positions[enumerator[x]] < positions[enumerator[y]]
+    }
+
+
+    operator fun get(location: MemoryLocation): CoherenceList =
+        map[location]?.coherence ?: emptyList()
     companion object {
-
-        private fun generate(
-            execution: Execution<AtomicThreadEvent>,
+        internal fun generate(
             memoryAccessEventIndex: AtomicMemoryAccessEventIndex,
             rmwChainsStorage: ReadModifyWriteOrder,
             writesOrder: Relation<AtomicThreadEvent>
-        ): Sequence<CoherenceOrder> {
+        ): Sequence<CoherenceOrderOption> {
             val coherenceOrderings = memoryAccessEventIndex.locations.mapNotNull { location ->
                 if (memoryAccessEventIndex.isWriteWriteRaceFree(location))
                     return@mapNotNull null
@@ -135,11 +157,11 @@ class CoherenceOrder(
             }
             if (coherenceOrderings.isEmpty()) {
                 return sequenceOf(
-                    CoherenceOrder(execution, memoryAccessEventIndex, rmwChainsStorage, writesOrder)
+                    CoherenceOrderOption(writesOrder)
                 )
             }
             return coherenceOrderings.cartesianProduct().map { coherenceList ->
-                val coherenceOrder = CoherenceOrder(execution, memoryAccessEventIndex, rmwChainsStorage, writesOrder)
+                val coherenceOrder = CoherenceOrderOption(writesOrder)
                 for (coherence in coherenceList) {
                     val location = coherence.getLocationForSameLocationWriteAccesses()!!
                     val enumerator = memoryAccessEventIndex.enumerator(AtomicMemoryAccessCategory.Write, location)!!
@@ -147,7 +169,7 @@ class CoherenceOrder(
                     coherence.forEachIndexed { i, write ->
                         positions[enumerator[write]] = i
                     }
-                    coherenceOrder.map[location] = Entry(coherence, positions, enumerator)
+                    coherenceOrder.map[location] = CoherenceEntry(coherence, positions, enumerator)
                 }
                 return@map coherenceOrder
             }
@@ -163,7 +185,7 @@ class ExtendedCoherenceOrder(
 ): Relation<AtomicThreadEvent>, Computable {
 
 //    private val relations: MutableMap<MemoryLocation, RelationMatrix<AtomicThreadEvent>> = mutableMapOf()
-    private val relations: MutableMap<MemoryLocation, RelationAdjacencyList<AtomicThreadEvent>> = mutableMapOf()
+    val relations: MutableMap<MemoryLocation, RelationAdjacencyList<AtomicThreadEvent>> = mutableMapOf()
 
     override fun invoke(x: AtomicThreadEvent, y: AtomicThreadEvent): Boolean {
         val location = getLocationForSameLocationAccesses(x, y)
@@ -176,6 +198,12 @@ class ExtendedCoherenceOrder(
     fun adjacent(x: AtomicThreadEvent) : Sequence<AtomicThreadEvent> {
         val xloc = (x.label as? MemoryAccessLabel)?.location ?: return emptySequence()
         return relations[xloc]?.adjacent(x) ?: emptySequence()
+    }
+
+    inline fun adjacentForEach(x: AtomicThreadEvent, block: (AtomicThreadEvent) -> Unit) {
+        val xloc = (x.label as? MemoryAccessLabel)?.location ?: return
+        val neighbours = relations[xloc]?.adjacent(x)
+        neighbours?.forEach { block(it) }
     }
 
 
@@ -305,17 +333,16 @@ class CausalGraph(var execution: Execution<AtomicThreadEvent>, var enumerator: E
     var capacityEvents: Int = 0
     var capacityThreads: Int = 0
         get() = nEvents
-    var map : Array<Array<Int>> = allocateNewMap()
+    var map : Array<IntArray> = allocateNewMap()
 
 
-    fun allocateNewMap() : Array<Array<Int>> {
+    fun allocateNewMap() : Array<IntArray> {
         capacityEvents = (nEvents * 1.5).roundToInt()
         capacityThreads = nThreads
-        return Array(capacityEvents) { Array(capacityThreads) { EMPTY_VALUE } }
+        return Array(capacityEvents) { IntArray(capacityThreads) { EMPTY_VALUE } }
     }
 
     fun reset(newExecution: Execution<AtomicThreadEvent>, newEnumerator: Enumerator<AtomicThreadEvent>) {
-        println("RESETTING")
         val shouldResize = capacityEvents < newExecution.size || capacityThreads < (newExecution.maxThreadId + 1)
         this.execution = newExecution
         this.enumerator = newEnumerator
@@ -325,25 +352,37 @@ class CausalGraph(var execution: Execution<AtomicThreadEvent>, var enumerator: E
     }
 
     fun buildCausalGraph(relation: Relation<AtomicThreadEvent>, respectsProgramOrder: Boolean) {
-        for (i in 0 until nEvents) {
-            val event = enumerator[i]
-            for (j in 0 until nThreads) { // NOTE: we can skip -1
-                val threadEvents = execution.get(j) ?: continue
+        for (eventId in 0 until nEvents) {
+            val event = enumerator[eventId]
+            for (threadId in 0 until nThreads) { // NOTE: we can skip -1
+                val threadEvents = execution.get(threadId) ?: continue
                 val position = if (respectsProgramOrder) {
                     // TODO: this uses binary search from utils. Replace it with standard binary search function (I did not want to use my brain right now)
                     threadEvents.binarySearch { relation(event, it) }
                 } else {
                     threadEvents.indexOfFirst { relation(event, it) }
                 }
-                map[i][j] = position
+
+                val targetEvent = execution[threadId, position]
+                var idx = -1
+                if(targetEvent != null) idx = enumerator[targetEvent]
+                map[eventId][threadId] = idx
             }
         }
     }
 
     fun adjacent(event: AtomicThreadEvent): Sequence<AtomicThreadEvent> {
-        return map[enumerator[event]].mapNotNull {
-            if (it == EMPTY_VALUE) null else enumerator[it]
-        }.asSequence()
+        val arr = map[enumerator[event]]
+        return arr.map { if (it == EMPTY_VALUE ) null else enumerator[it] }.filterNotNull().asSequence()
+    }
+
+    inline fun adjacentForEach(event: AtomicThreadEvent, block: (AtomicThreadEvent) -> Unit) {
+        val arr = map[enumerator[event]]
+        arr.forEach {
+            if (it != EMPTY_VALUE) {
+                block(enumerator[it])
+            }
+        }
     }
 
 }
