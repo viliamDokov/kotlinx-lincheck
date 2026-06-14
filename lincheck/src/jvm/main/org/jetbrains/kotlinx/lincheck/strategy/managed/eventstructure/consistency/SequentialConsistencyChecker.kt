@@ -397,16 +397,6 @@ class ExecutionOrderFast(
     override val ordering: List<AtomicThreadEvent>
         get() = _ordering
 
-    private val constraints = Relation<AtomicThreadEvent> { x, y ->
-        when {
-            // put wait-request before notify event
-            x.label.isRequest && x.label is WaitLabel ->
-                (y == execution.getResponse(x)?.notifiedBy)
-
-            else -> false
-        }
-    }
-
     fun adjacent(node: AtomicThreadEvent) : Sequence<AtomicThreadEvent> {
         var extra = emptySequence<AtomicThreadEvent>()
         if ( node.label.isRequest && node.label is WaitLabel ) {
