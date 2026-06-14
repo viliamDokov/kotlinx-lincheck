@@ -86,13 +86,14 @@ class CoherenceOrder(
 
     override fun compute() {
         check(map.isEmpty())
+
+        val causalGraph = execution.buildGraph(causalityOrder, true)
+
         generate(execution, memoryAccessEventIndex, rmwChainsStorage, writesOrder)
             .forEach { coherence ->
                 val extendedCoherence = ExtendedCoherenceOrder(execution, memoryAccessEventIndex,
                     writesOrder = causalityOrder union coherence
                 ).apply { initialize(); compute() }
-
-                val causalGraph = execution.buildGraph(causalityOrder, true)
 
                 val executionOrder = ExecutionOrderFast(
                     execution, memoryAccessEventIndex,
