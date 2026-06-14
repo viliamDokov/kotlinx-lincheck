@@ -24,6 +24,7 @@ import org.jetbrains.kotlinx.lincheck.strategy.managed.*
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.*
 import org.jetbrains.lincheck.util.*
 import org.jetbrains.lincheck.util.collections.*
+import kotlin.math.roundToInt
 
 typealias CoherenceList = List<AtomicThreadEvent>
 
@@ -80,7 +81,7 @@ class CoherenceOrder(
     }
 
     override fun reset() {
-        map.clear()
+//        map.clear()
         consistent = true
     }
 
@@ -287,4 +288,62 @@ class ExtendedCoherenceOrder(
             }
         }
     }
+}
+
+
+class CausalGraph(var execution: Execution<AtomicThreadEvent>, var enumerator: Enumerator<AtomicThreadEvent>) {
+
+    companion object {
+        val EMPTY_VALUE: Int = -1
+    }
+
+    val nEvents : Int
+        get() =  execution.size
+    val nThreads : Int
+        get() =  execution.maxThreadId + 1
+
+    var capacityEvents: Int = 0
+    var capacityThreads: Int = 0
+        get() = nEvents
+    var map : Array<Array<Int>> = allocateNewMap()
+
+
+    fun allocateNewMap() : Array<Array<Int>> {
+        capacityEvents = (nEvents * 1.5).roundToInt()
+        capacityThreads = nThreads
+        return Array(capacityEvents) { Array(capacityThreads) { EMPTY_VALUE } }
+    }
+
+    fun reset(newExecution: Execution<AtomicThreadEvent>, newEnumerator: Enumerator<AtomicThreadEvent>) {
+        println("RESETTING")
+        val shouldResize = capacityEvents < newExecution.size || capacityThreads < (newExecution.maxThreadId + 1)
+        this.execution = newExecution
+        this.enumerator = newEnumerator
+        if(shouldResize) {
+            map = allocateNewMap()
+        }
+    }
+
+    fun buildCausalGraph(relation: Relation<AtomicThreadEvent>, respectsProgramOrder: Boolean) {
+        for (i in 0 until nEvents) {
+            val event = enumerator[i]
+            for (j in 0 until nThreads) { // NOTE: we can skip -1
+                val threadEvents = execution.get(j) ?: continue
+                val position = if (respectsProgramOrder) {
+                    // TODO: this uses binary search from utils. Replace it with standard binary search function (I did not want to use my brain right now)
+                    threadEvents.binarySearch { relation(event, it) }
+                } else {
+                    threadEvents.indexOfFirst { relation(event, it) }
+                }
+                map[i][j] = position
+            }
+        }
+    }
+
+    fun adjacent(event: AtomicThreadEvent): Sequence<AtomicThreadEvent> {
+        return map[enumerator[event]].mapNotNull {
+            if (it == EMPTY_VALUE) null else enumerator[it]
+        }.asSequence()
+    }
+
 }
