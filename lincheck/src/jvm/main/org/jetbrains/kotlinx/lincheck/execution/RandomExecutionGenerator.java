@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 
 public class RandomExecutionGenerator extends ExecutionGenerator {
     private final Random random;
+    private int i = 0;
 
     public RandomExecutionGenerator(CTestConfiguration testConfiguration, CTestStructure testStructure, RandomProvider randomProvider) {
         super(testConfiguration, testStructure);
@@ -97,7 +98,7 @@ public class RandomExecutionGenerator extends ExecutionGenerator {
             postExecution = Collections.emptyList();
         }
         ExecutionScenario result = new ExecutionScenario(initExecution, parallelExecution, postExecution, testStructure.validationFunction);
-        System.out.println("Generated execution:\n" + result);
+        System.out.println("Generated execution" + (++i) + ":\n" + result);
         return result;
     }
 
