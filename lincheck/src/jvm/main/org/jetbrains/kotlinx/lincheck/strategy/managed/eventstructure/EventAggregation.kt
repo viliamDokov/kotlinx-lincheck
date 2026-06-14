@@ -208,6 +208,14 @@ private val ReceiveAggregationAlgebra = object : SynchronizationAlgebra {
         else -> null
     }
 
+    override fun synchronizable(label: EventLabel, other: EventLabel): Boolean = when {
+        label.isSpanLabel || other.isSpanLabel ->
+            false
+        label.isRequest && other.isResponse && other.isValidResponse(label) ->
+            true
+        else -> false
+    }
+
 }
 
 fun ThreadStartLabel.getReceive(): EventLabel =
@@ -263,6 +271,25 @@ private val MemoryAccessAggregationAlgebra = object : SynchronizationAlgebra {
         else -> null
     }
 
+    override fun synchronizable(label: EventLabel, other: EventLabel): Boolean = when {
+        // read request synchronizes with read response
+        label is ReadAccessLabel && label.isRequest && other is ReadAccessLabel && other.isResponse
+                && other.isValidResponse(label) -> true
+        // exclusive read response/receive synchronizes with exclusive write
+        label is ReadAccessLabel && (label.isResponse || label.isReceive) && other is WriteAccessLabel ->
+            (label.isExclusive &&
+                    label.location == other.location &&
+                    label.readModifyWriteDescriptor == other.readModifyWriteDescriptor &&
+                    label.codeLocation == other.codeLocation &&
+                    label.memoryOrdering == other.memoryOrdering
+                    )
+
+        // exclusive read request synchronizes with read-modify-write response
+        label is ReadAccessLabel && label.isRequest && other is ReadModifyWriteAccessLabel && other.isResponse
+                && label.isValidReadPart(other) -> true
+        else -> false
+    }
+
 }
 
 val MutexAggregationAlgebra = object : SynchronizationAlgebra {
@@ -287,6 +314,17 @@ val MutexAggregationAlgebra = object : SynchronizationAlgebra {
         else -> null
     }
 
+    override fun synchronizable(label: EventLabel, other: EventLabel): Boolean = when {
+        // unlock label can be merged with the subsequent wait request
+        label is UnlockLabel && other is WaitLabel && other.isRequest && !other.isUnlocking
+                && label.mutexID == other.mutexID -> true
+        // wait response label can be merged with the subsequent lock request
+        label is WaitLabel && label.isResponse && !label.isLocking && other is LockLabel && other.isRequest
+                && label.mutexID == other.mutexID -> true
+        // TODO: do we need to merge lock request/response (?)
+        else -> false
+    }
+
 }
 
 val ThreadAggregationAlgebra = object : SynchronizationAlgebra {
@@ -303,6 +341,13 @@ val ThreadAggregationAlgebra = object : SynchronizationAlgebra {
         is MemoryAccessLabel    -> MemoryAccessAggregationAlgebra.synchronize(label, other)
         is MutexLabel           -> MutexAggregationAlgebra.synchronize(label, other)
         else                    -> ReceiveAggregationAlgebra.synchronize(label, other)
+    }
+
+    override fun synchronizable(label: EventLabel, other: EventLabel): Boolean = when (label) {
+        is ActorLabel           -> false
+        is MemoryAccessLabel    -> MemoryAccessAggregationAlgebra.synchronizable(label, other)
+        is MutexLabel           -> MutexAggregationAlgebra.synchronizable(label, other)
+        else                    -> ReceiveAggregationAlgebra.synchronizable(label, other)
     }
 
 }
