@@ -20,7 +20,7 @@ import org.junit.Ignore
 import java.util.concurrent.ConcurrentHashMap
 
 // TODO: Test is too slow. See if we get stuck and loop or it is something else
-@Ignore
+//@Ignore
 @Param(name = "key", gen = IntGen::class, conf = "1:5")
 class ConcurrentHashMapTest : AbstractLincheckTest() {
     private val map = ConcurrentHashMap<Int, Int>()
@@ -37,6 +37,7 @@ class ConcurrentHashMapTest : AbstractLincheckTest() {
     override fun <O : Options<O, *>> O.customize() {
         // To obtain rare interleaving with `fullAddCount` method
         if (this is ModelCheckingOptions) {
+            iterations(10)
             invocationsPerIteration(10000)
             analyzeStdLib(true)
         }

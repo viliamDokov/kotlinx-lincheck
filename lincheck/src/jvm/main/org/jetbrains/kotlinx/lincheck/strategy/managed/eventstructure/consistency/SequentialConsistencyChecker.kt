@@ -27,6 +27,7 @@ import org.jetbrains.lincheck.util.Relation
 import org.jetbrains.lincheck.util.RelationMatrix
 import org.jetbrains.lincheck.util.ensure
 import org.jetbrains.lincheck.util.union
+import java.util.LinkedList
 import kotlin.collections.*
 
 
@@ -309,17 +310,17 @@ class SequentialConsistencyOrder(
 
 }
 
-class ExecutionOrder(
-    val execution: Execution<AtomicThreadEvent>,
-    val memoryAccessEventIndex: AtomicMemoryAccessEventIndex,
-    val approximation: Relation<AtomicThreadEvent>,
+open class ExecutionOrder(
+    open val execution: Execution<AtomicThreadEvent>,
+    open val memoryAccessEventIndex: AtomicMemoryAccessEventIndex,
+    open val approximation: Relation<AtomicThreadEvent>,
 ) : Relation<AtomicThreadEvent>, Computable {
 
     private var consistent = true
 
     private val _ordering = mutableListOf<AtomicThreadEvent>()
 
-    val ordering: List<AtomicThreadEvent>
+    open val ordering: List<AtomicThreadEvent>
         get() = _ordering
 
     private val constraints = Relation<AtomicThreadEvent> { x, y ->
@@ -336,11 +337,11 @@ class ExecutionOrder(
         TODO("Not yet implemented")
     }
 
-    fun isConsistent(): Boolean =
+    open fun isConsistent(): Boolean =
         // TODO: embed failure state into ComputableNode state machine?
         consistent
 
-    fun add(event: AtomicThreadEvent) {
+    open fun add(event: AtomicThreadEvent) {
         check(consistent)
         _ordering.add(event)
     }
@@ -348,23 +349,157 @@ class ExecutionOrder(
     override fun compute() {
         check(_ordering.isEmpty())
         val relation = approximation union constraints
-        // construct aggregated execution consisting of atomic events
-        // to incorporate the atomicity constraints during the search for topological sorting
-        val (aggregatedExecution, _) = execution.aggregate(ThreadAggregationAlgebra.aggregator())
-        val aggregatedRelation = relation.existsLifting()
+
         // TODO: optimization --- we can build graph only for a subset of events, excluding:
         //  - non-blocking request events
         //  - events accessing race-free locations
         //  - what else?
         //  and then insert them back into the topologically sorted list
+        // construct aggregated execution consisting of atomic events
+        // to incorporate the atomicity constraints during the search for topological sorting
+
+        val (aggregatedExecution, _) = execution.aggregate(ThreadAggregationAlgebra.aggregator())
+        val aggregatedRelation = relation.existsLifting()
         val graph = aggregatedExecution.buildGraph(aggregatedRelation)
         val ordering = topologicalSorting(graph)
+
         if (ordering == null) {
             consistent = false
             return
         }
+
         this._ordering.addAll(ordering.flatMap { it.events })
     }
+
+    override fun invalidate() {
+        consistent = true
+    }
+
+    override fun reset() {
+        _ordering.clear()
+        invalidate()
+    }
+
+}
+
+class ExecutionOrderFast(
+    override val execution: Execution<AtomicThreadEvent>,
+    override val memoryAccessEventIndex: AtomicMemoryAccessEventIndex,
+    val causalGraph: Graph<AtomicThreadEvent>,
+    val eco: ExtendedCoherenceOrder,
+    override val approximation: Relation<AtomicThreadEvent>,
+) : ExecutionOrder(execution, memoryAccessEventIndex, approximation) {
+
+    private var consistent = true
+
+    private val _ordering = mutableListOf<AtomicThreadEvent>()
+
+    override val ordering: List<AtomicThreadEvent>
+        get() = _ordering
+
+    private val constraints = Relation<AtomicThreadEvent> { x, y ->
+        when {
+            // put wait-request before notify event
+            x.label.isRequest && x.label is WaitLabel ->
+                (y == execution.getResponse(x)?.notifiedBy)
+
+            else -> false
+        }
+    }
+
+    fun adjacent(node: AtomicThreadEvent) : Sequence<AtomicThreadEvent> {
+        var extra = emptySequence<AtomicThreadEvent>()
+        if ( node.label.isRequest && node.label is WaitLabel ) {
+            val resp = execution.getResponse(node)?.notifiedBy
+            if (resp != null) extra = sequenceOf(resp!!)
+        }
+        return eco.adjacent(node) + causalGraph.adjacent(node) + extra
+    }
+
+    override fun invoke(x: AtomicThreadEvent, y: AtomicThreadEvent): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun isConsistent(): Boolean =
+        // TODO: embed failure state into ComputableNode state machine?
+        consistent
+
+    override fun add(event: AtomicThreadEvent) {
+        check(consistent)
+        _ordering.add(event)
+    }
+
+    override fun compute() {
+        check(_ordering.isEmpty())
+
+        // TODO: optimization --- we can build graph only for a subset of events, excluding:
+        //  - non-blocking request events
+        //  - events accessing race-free locations
+        //  - what else?
+        //  and then insert them back into the topologically sorted list
+
+        val ordering = topologicalSorting()
+
+        if (ordering == null) {
+            consistent = false
+            return
+        }
+
+        this._ordering.addAll(ordering )
+//        this._ordering.addAll(ordering.flatMap { it.events })
+    }
+
+    fun topologicalSorting() : List<AtomicThreadEvent>? {
+        val queue = LinkedList<Pair<Boolean, AtomicThreadEvent>>()
+        // The only event without any deps is the INIT event
+        queue.add(Pair(false, execution[-1,0]!!))
+        check(execution.first().label is InitializationLabel)
+
+        val marked = mutableSetOf<ThreadEvent>()
+        val done = mutableSetOf<ThreadEvent>()
+        val result = mutableListOf<AtomicThreadEvent>()
+
+        while (queue.isNotEmpty()) {
+            val (isDone, node) = queue.removeLast()
+            if (node in done) continue
+            if (isDone) {
+                done.add(node)
+                result.add(node)
+                continue
+            }
+            // We have a cycle
+            if (node in marked) {
+                return null
+            }
+            marked.add(node)
+
+            // Add the action marking that the queue is over
+            queue.add(Pair(true, node))
+
+            val child = execution[node.threadId, node.threadPosition+1]
+            if (child != null) {
+                check(child.parent == node) { "Child event ${child} has wrong parent ${child.parent}, expected ${node}!" }
+                queue.add(Pair(false, child))
+            }
+
+            for (neighbour in adjacent(node)) {
+                if (neighbour == child) continue // TODO: maybe add assert that the child is always a neighbour?
+
+                // To handle atomic events, we add the start of the execution
+                var start: AtomicThreadEvent = neighbour;
+                while(start.parent != null && ThreadAggregationAlgebra.synchronizable(start.parent!!.label, start.label)) {
+                    start = start.parent!!
+                }
+
+                if (start == node) continue
+                queue.add(Pair(false, start))
+            }
+        }
+
+        check(result.size == execution.size)
+        return result.reversed()
+    }
+
 
     override fun invalidate() {
         consistent = true

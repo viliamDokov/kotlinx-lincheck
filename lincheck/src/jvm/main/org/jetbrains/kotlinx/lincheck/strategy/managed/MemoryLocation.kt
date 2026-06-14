@@ -183,7 +183,6 @@ class StaticFieldMemoryLocation(
         return (other is StaticFieldMemoryLocation)
                 && (className == other.className)
                 && (fieldName == other.fieldName)
-                && (kClass == other.kClass)
     }
 
     override fun hashCode(): Int {
@@ -234,7 +233,6 @@ class ObjectFieldMemoryLocation(
                 && (objID == other.objID)
                 && (className == other.className)
                 && (fieldName == other.fieldName)
-                && (kClass == other.kClass)
     }
 
     override fun hashCode(): Int {

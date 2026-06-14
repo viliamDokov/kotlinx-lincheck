@@ -216,3 +216,161 @@ class RelationMatrix<T>(
     }
 
 }
+
+class RelationAdjacencyList<T>(
+    // TODO: take nodes from the enumerator (?)
+    val nodes: Collection<T>,
+) : Relation<T> {
+
+    private val size = nodes.size
+
+    private val adjacencyMap: MutableMap<T, MutableSet<T>> = mutableMapOf()
+
+    private var version = 0
+
+    constructor(nodes: Collection<T>, relation: Relation<T>) : this (nodes) {
+        add(relation)
+    }
+
+    override operator fun invoke(x: T, y: T): Boolean =
+        get(x, y)
+
+
+    operator fun get(x: T, y: T): Boolean  {
+        val ns = adjacencyMap[x] ?: return false
+        return y in ns
+    }
+
+    fun adjacent(x: T) : Sequence<T> {
+        return adjacencyMap[x]?.asSequence() ?: emptySequence()
+    }
+
+    operator fun set(x: T, y: T, value: Boolean) {
+        adjacencyMap.update(x, mutableSetOf() ) {
+            if (value) {
+                it.add(y)
+            } else {
+                it.remove(y)
+            }
+            it
+        }
+        check(this[x, y] == value)
+    }
+
+    fun add(relation: Relation<T>) {
+        TODO()
+        for (node1 in nodes) {
+            for (node2 in nodes) {
+                if (relation(node1, node2)) {
+                    this[node1, node2] = true
+                }
+            }
+        }
+    }
+
+    fun order(ordering: List<T>, strict: Boolean = true) {
+        TODO()
+        for (i in ordering.indices) {
+            for (j in i until ordering.size) {
+                if (strict && i == j)
+                    continue
+                this[ordering[i], ordering[j]] = true
+            }
+        }
+    }
+
+    fun remove(relation: Relation<T>) {
+        TODO()
+        for (node1 in nodes) {
+            for (node2 in nodes) {
+                this[node1, node2] = this[node1, node2] && !relation(node1, node2)
+            }
+        }
+    }
+
+    fun filter(relation: Relation<T>) {
+        TODO()
+        for (node1 in nodes) {
+            for (node2 in nodes) {
+                this[node1, node2] = this[node1, node2] && relation(node1, node2)
+            }
+        }
+    }
+
+    private fun swap(node1: T, node2: T) {
+        val value  = this[node1, node2]
+        this[node1, node2] = this[node1, node2]
+        this[node1, node2] = value
+    }
+
+    fun transpose() {
+        TODO()
+        for (node1 in nodes) {
+            for (node2 in nodes) {
+                swap(node1, node2)
+            }
+        }
+    }
+
+    fun transitiveClosure() {
+        // TODO: optimize -- skip the computation for already transitive relation;
+        //  track this by saving relation version number at the last call to `transitiveClosure`
+        TODO()
+        kLoop@for (nodeK in nodes) {
+            iLoop@for (nodeI in nodes) {
+                if (!this[nodeI, nodeK])
+                    continue@iLoop
+                jLoop@for (nodeJ in nodes) {
+                    this[nodeI, nodeJ] = this[nodeI, nodeJ] || this[nodeK, nodeJ]
+                }
+            }
+        }
+    }
+
+    fun transitiveReduction() {
+        jLoop@for (nodeJ in nodes) {
+            iLoop@for (nodeI in nodes) {
+                if (!this[nodeI, nodeJ])
+                    continue@iLoop
+                kLoop@for (nodeK in nodes) {
+                    if (this[nodeI, nodeK] && this[nodeJ, nodeK]) {
+                        this[nodeI, nodeK] = false
+                    }
+                }
+            }
+        }
+    }
+
+    fun equivalenceClosure(equivClassMapping : (T) -> List<T>?) {
+        for (i in nodes) {
+            val xClass = equivClassMapping(i)
+            for (j in nodes) {
+                val yClass = equivClassMapping(j)
+                if (this[i, j] && xClass !== yClass) {
+                    xClass?.forEach { this[it, j] = true }
+                    yClass?.forEach { this[i, it] = true }
+                }
+            }
+        }
+    }
+
+    fun fixpoint(block: RelationAdjacencyList<T>.() -> Unit) {
+        do {
+            val changed = trackChanges { block() }
+        } while (changed)
+    }
+
+    fun trackChanges(block: RelationAdjacencyList<T>.() -> Unit): Boolean {
+        val version = this.version
+        block(this)
+        return (version != this.version)
+    }
+
+    fun isIrreflexive(): Boolean {
+        for (i in nodes) {
+            if (this[i, i])
+                return false
+        }
+        return true
+    }
+}

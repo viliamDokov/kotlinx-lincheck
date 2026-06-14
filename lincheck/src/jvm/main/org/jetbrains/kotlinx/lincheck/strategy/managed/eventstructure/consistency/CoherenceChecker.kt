@@ -86,22 +86,29 @@ class CoherenceOrder(
 
     override fun compute() {
         check(map.isEmpty())
-        generate(execution, memoryAccessEventIndex, rmwChainsStorage, writesOrder).forEach { coherence ->
-            val extendedCoherence = ExtendedCoherenceOrder(execution, memoryAccessEventIndex,
-                writesOrder = causalityOrder union coherence
-            )
-                .apply { initialize(); compute() }
-            val executionOrder = ExecutionOrder(execution, memoryAccessEventIndex,
-                approximation = causalityOrder union extendedCoherence
-            )
-                .apply { initialize(); compute() }
-            if (!executionOrder.isConsistent())
-                return@forEach
-            this.map += coherence.map
-            this.extendedCoherenceOrder?.setComputed(extendedCoherence)
-            this.executionOrder?.setComputed(executionOrder)
-            return
-        }
+        generate(execution, memoryAccessEventIndex, rmwChainsStorage, writesOrder)
+            .forEach { coherence ->
+                val extendedCoherence = ExtendedCoherenceOrder(execution, memoryAccessEventIndex,
+                    writesOrder = causalityOrder union coherence
+                ).apply { initialize(); compute() }
+
+                val causalGraph = execution.buildGraph(causalityOrder, true)
+
+                val executionOrder = ExecutionOrderFast(
+                    execution, memoryAccessEventIndex,
+                    causalGraph, extendedCoherence, extendedCoherence union causalityOrder
+                ).apply { initialize(); compute() }
+
+                if (!executionOrder.isConsistent())
+                    return@forEach
+
+                this.map += coherence.map
+                this.extendedCoherenceOrder?.setComputed(extendedCoherence)
+                this.executionOrder?.setComputed(executionOrder)
+
+
+                return
+            }
         // if we reached this point, then none of the generated coherence orderings is consistent
         consistent = false
     }
@@ -153,15 +160,22 @@ class ExtendedCoherenceOrder(
     val writesOrder: Relation<AtomicThreadEvent>,
 ): Relation<AtomicThreadEvent>, Computable {
 
-    private val relations: MutableMap<MemoryLocation, RelationMatrix<AtomicThreadEvent>> = mutableMapOf()
+//    private val relations: MutableMap<MemoryLocation, RelationMatrix<AtomicThreadEvent>> = mutableMapOf()
+    private val relations: MutableMap<MemoryLocation, RelationAdjacencyList<AtomicThreadEvent>> = mutableMapOf()
 
     override fun invoke(x: AtomicThreadEvent, y: AtomicThreadEvent): Boolean {
         val location = getLocationForSameLocationAccesses(x, y)
             ?: return false
-        if (!(isWriteOrReadResponse(x) && isWriteOrReadResponse(y)))
-            return false
+//        if (!(isWriteOrReadResponse(x) && isWriteOrReadResponse(y)))
+//            return false
         return relations[location]?.get(x, y) ?: false
     }
+
+    fun adjacent(x: AtomicThreadEvent) : Sequence<AtomicThreadEvent> {
+        val xloc = (x.label as? MemoryAccessLabel)?.location ?: return emptySequence()
+        return relations[xloc]?.adjacent(x) ?: emptySequence()
+    }
+
 
     private fun isWriteOrReadResponse(x: AtomicThreadEvent): Boolean {
         return (x.label.isWriteAccess() || x.label is ReadAccessLabel && x.label.isResponse)
@@ -176,7 +190,8 @@ class ExtendedCoherenceOrder(
                 addAll(memoryAccessEventIndex.getWrites(location))
                 addAll(memoryAccessEventIndex.getReadResponses(location))
             }
-            relations[location] = RelationMatrix(events, buildEnumerator(events))
+//            relations[location] = RelationMatrix(events, buildEnumerator(events))
+            relations[location] = RelationAdjacencyList(events)
         }
     }
 
