@@ -23,12 +23,16 @@ package org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consisten
 import org.jetbrains.kotlinx.lincheck.strategy.managed.*
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.*
 import org.jetbrains.lincheck.util.Computable
+import org.jetbrains.lincheck.util.Enumerator
+import org.jetbrains.lincheck.util.MemoryOrdering
 import org.jetbrains.lincheck.util.Relation
 import org.jetbrains.lincheck.util.RelationMatrix
 import org.jetbrains.lincheck.util.ensure
 import org.jetbrains.lincheck.util.union
+import java.util.BitSet
 import java.util.LinkedList
 import kotlin.collections.*
+import kotlin.math.roundToInt
 
 
 abstract class SequentialConsistencyViolation : Inconsistency()
@@ -311,28 +315,14 @@ class SequentialConsistencyOrder(
 
 }
 
-open class ExecutionOrder(
-    open val execution: Execution<AtomicThreadEvent>,
-    open val memoryAccessEventIndex: AtomicMemoryAccessEventIndex,
-    open val approximation: Relation<AtomicThreadEvent>,
-) : Relation<AtomicThreadEvent>, Computable {
+open class ExecutionOrder(ordering: MutableList<AtomicThreadEvent>) : Relation<AtomicThreadEvent>, Computable {
 
     private var consistent = true
 
-    private val _ordering = mutableListOf<AtomicThreadEvent>()
+    private val _ordering = ordering
 
-    open val ordering: List<AtomicThreadEvent>
+    val ordering: List<AtomicThreadEvent>
         get() = _ordering
-
-    private val constraints = Relation<AtomicThreadEvent> { x, y ->
-        when {
-            // put wait-request before notify event
-            x.label.isRequest && x.label is WaitLabel ->
-                (y == execution.getResponse(x)?.notifiedBy)
-
-            else -> false
-        }
-    }
 
     override fun invoke(x: AtomicThreadEvent, y: AtomicThreadEvent): Boolean {
         TODO("Not yet implemented")
@@ -347,66 +337,34 @@ open class ExecutionOrder(
         _ordering.add(event)
     }
 
-    override fun compute() {
-        check(_ordering.isEmpty())
-        val relation = approximation union constraints
+    override fun compute() {}
 
-        // TODO: optimization --- we can build graph only for a subset of events, excluding:
-        //  - non-blocking request events
-        //  - events accessing race-free locations
-        //  - what else?
-        //  and then insert them back into the topologically sorted list
-        // construct aggregated execution consisting of atomic events
-        // to incorporate the atomicity constraints during the search for topological sorting
+    override fun invalidate() {}
 
-        val (aggregatedExecution, _) = execution.aggregate(ThreadAggregationAlgebra.aggregator())
-        val aggregatedRelation = relation.existsLifting()
-        val graph = aggregatedExecution.buildGraph(aggregatedRelation)
-        val ordering = topologicalSorting(graph)
-
-        if (ordering == null) {
-            consistent = false
-            return
-        }
-
-        this._ordering.addAll(ordering.flatMap { it.events })
-    }
-
-    override fun invalidate() {
-        consistent = true
-    }
-
-    override fun reset() {
-        _ordering.clear()
-        invalidate()
-    }
-
+    override fun reset() {}
 }
 
 class ExecutionOrderFast(
-    override val execution: Execution<AtomicThreadEvent>,
-    override val memoryAccessEventIndex: AtomicMemoryAccessEventIndex,
-    val causalGraph: CausalGraph,
-    val eco: ExtendedCoherenceOrder,
-    override val approximation: Relation<AtomicThreadEvent>,
-) : ExecutionOrder(execution, memoryAccessEventIndex, approximation) {
+    var execution: Execution<AtomicThreadEvent>,
+    var enumerator: Enumerator<AtomicThreadEvent>,
+    var causalGraph: CausalGraph,
+    var eco: ExtendedCoherenceOrder,
+) {
 
-    private var consistent = true
+    private var eventCapacity = 0
 
-    private val _ordering = mutableListOf<AtomicThreadEvent>()
+    val size : Int
+        get() = execution.size
+    var marked = BitSet(eventCapacity)
+    var done = BitSet(eventCapacity)
+    val queue = ArrayDeque<Int>()
 
-    override val ordering: List<AtomicThreadEvent>
-        get() = _ordering
-
-    fun adjacent(node: AtomicThreadEvent) : Sequence<AtomicThreadEvent> {
-        val seq = mutableListOf<AtomicThreadEvent>()
-        eco.adjacentForEach(node) { n -> seq.add(n) }
-        causalGraph.adjacentForEach(node) { n -> seq.add(n) }
-        if ( node.label.isRequest && node.label is WaitLabel ) {
-            val resp = execution.getResponse(node)?.notifiedBy
-            if (resp != null) seq.add(resp)
+    private fun resizeCollections() {
+        if (eventCapacity < execution.size) {
+            eventCapacity = (execution.size * 1.5).roundToInt()
+            marked = BitSet(eventCapacity)
+            done = BitSet(eventCapacity)
         }
-        return seq.asSequence()
     }
 
     inline fun forEachAdjacent(node: AtomicThreadEvent, block : (AtomicThreadEvent) -> Unit) {
@@ -418,70 +376,55 @@ class ExecutionOrderFast(
         }
     }
 
-    override fun invoke(x: AtomicThreadEvent, y: AtomicThreadEvent): Boolean {
-        TODO("Not yet implemented")
-    }
 
-    override fun isConsistent(): Boolean =
-        // TODO: embed failure state into ComputableNode state machine?
-        consistent
-
-    override fun add(event: AtomicThreadEvent) {
-        check(consistent)
-        _ordering.add(event)
-    }
-
-    override fun compute() {
-        check(_ordering.isEmpty())
-
+    fun compute() : ExecutionOrder? {
         // TODO: optimization --- we can build graph only for a subset of events, excluding:
         //  - non-blocking request events
         //  - events accessing race-free locations
         //  - what else?
         //  and then insert them back into the topologically sorted list
+        resizeCollections()
+        marked.clear()
+        done.clear()
+        queue.clear()
 
-        val ordering = topologicalSorting()
-
-        if (ordering == null) {
-            consistent = false
-            return
-        }
-
-        this._ordering.addAll(ordering )
-//        this._ordering.addAll(ordering.flatMap { it.events })
+        val ordering = topologicalSorting() ?: return null
+        return ExecutionOrder(ordering)
     }
 
-    fun topologicalSorting() : List<AtomicThreadEvent>? {
-        val queue = LinkedList<Pair<Boolean, AtomicThreadEvent>>()
+    fun topologicalSorting() : MutableList<AtomicThreadEvent>? {
+        val DONE_FLAG = 1 shl 31
         // The only event without any deps is the INIT event
-        queue.add(Pair(false, execution[-1,0]!!))
-        check(execution.first().label is InitializationLabel)
+        queue.add(0)
+        check(enumerator[0].label is InitializationLabel)
 
-        val marked = mutableSetOf<ThreadEvent>()
-        val done = mutableSetOf<ThreadEvent>()
         val result = mutableListOf<AtomicThreadEvent>()
 
         while (queue.isNotEmpty()) {
-            val (isDone, node) = queue.removeLast()
-            if (node in done) continue
+            val mark = queue.removeLast()
+            val isDone = (mark and DONE_FLAG) == DONE_FLAG
+            val nodeIdx = mark and (DONE_FLAG.inv())
+            check(nodeIdx >= 0)
+            if (done.get(nodeIdx)) continue
             if (isDone) {
-                done.add(node)
-                result.add(node)
+                done.set(nodeIdx)
+                result.add(enumerator[nodeIdx])
                 continue
             }
             // We have a cycle
-            if (node in marked) {
+            if (marked.get(nodeIdx)) {
                 return null
             }
-            marked.add(node)
+            marked.set(nodeIdx)
 
             // Add the action marking that the queue is over
-            queue.add(Pair(true, node))
+            queue.add(nodeIdx or DONE_FLAG)
 
+            val node = enumerator[nodeIdx]
             val child = execution[node.threadId, node.threadPosition+1]
             if (child != null) {
                 check(child.parent == node) { "Child event ${child} has wrong parent ${child.parent}, expected ${node}!" }
-                queue.add(Pair(false, child))
+                queue.add(enumerator[child])
             }
 
             forEachAdjacent(node) { neighbour ->
@@ -494,22 +437,12 @@ class ExecutionOrderFast(
                 }
 
                 if (start == node) return@forEachAdjacent
-                queue.add(Pair(false, start))
+                queue.add(enumerator[start])
             }
         }
 
         check(result.size == execution.size)
-        return result.reversed()
+        return result.reversed().toMutableList()
     }
-
-
-    override fun invalidate() {
-        consistent = true
-    }
-
-    override fun reset() {
-        _ordering.clear()
-        invalidate()
-    }
-
 }
+

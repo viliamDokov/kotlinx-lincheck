@@ -159,11 +159,7 @@ fun MutableExtendedExecution(): MutableExtendedExecution =
 
 
     override val executionOrderComputable = computable {
-        ExecutionOrder(
-            execution,
-            memoryAccessEventIndex,
-            causalityOrder union writesBeforeOrder, // TODO: this order does not matter, as it will get replaced :)
-        )
+        ExecutionOrder(mutableListOf())
     }
 //        .dependsOn(extendedCoherenceComputable, soft = true, invalidating = true)
         .apply {

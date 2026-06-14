@@ -63,6 +63,9 @@ class CoherenceOrder(
     val causalGraph = CausalGraph(execution, enumerator)
 
     val extendedCoherenceOrder = ExtendedCoherenceOrder(execution, enumerator, memoryAccessEventIndex, causalityOrder union writesOrder)
+    val executionOrder = ExecutionOrderFast(
+        execution, enumerator, causalGraph, extendedCoherenceOrder
+    )
 
 
     private val map = mutableMapOf<MemoryLocation, CoherenceEntry>()
@@ -110,16 +113,17 @@ class CoherenceOrder(
                     compute()
                 }
 
-                val executionOrder = ExecutionOrderFast(
-                    execution, memoryAccessEventIndex,
-                    causalGraph, extendedCoherenceOrder, writesOrder
-                ).apply { initialize(); compute() }
+                executionOrder.execution = execution
+                executionOrder.enumerator = enumerator
+                executionOrder.causalGraph = causalGraph
+                executionOrder.eco = extendedCoherenceOrder
+                val ordering = executionOrder.compute()
 
-                if (!executionOrder.isConsistent())
+                if (ordering == null)
                     return@forEach
 
                 this.map += coherence.map
-                this.executionOrderNode?.setComputed(executionOrder)
+                this.executionOrderNode?.setComputed(ordering)
 
                 return
             }
@@ -305,7 +309,6 @@ class CausalGraph(var execution: Execution<AtomicThreadEvent>, var enumerator: E
         }
     }
 
-
     fun initialize(newExecution: Execution<AtomicThreadEvent>, newEnumerator: Enumerator<AtomicThreadEvent>) {
         val shouldResize = capacityEvents < newExecution.size || capacityThreads < (newExecution.maxThreadId + 1)
         this.execution = newExecution
@@ -333,11 +336,6 @@ class CausalGraph(var execution: Execution<AtomicThreadEvent>, var enumerator: E
                 map[eventId][threadId] = idx
             }
         }
-    }
-
-    fun adjacent(event: AtomicThreadEvent): Sequence<AtomicThreadEvent> {
-        val arr = map[enumerator[event]]
-        return arr.map { if (it == EMPTY_VALUE ) null else enumerator[it] }.filterNotNull().asSequence()
     }
 
     fun set(event1: AtomicThreadEvent, event2: AtomicThreadEvent) {
