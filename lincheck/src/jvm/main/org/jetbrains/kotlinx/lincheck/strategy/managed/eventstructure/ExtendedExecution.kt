@@ -68,20 +68,6 @@ interface ExtendedExecution : Execution<AtomicThreadEvent> {
     val coherenceOrder: Relation<AtomicThreadEvent>
 
     /**
-     * The extended coherence (eco) relation of the execution
-     *
-     * @see ExtendedCoherenceOrder
-     */
-    val extendedCoherence: Relation<AtomicThreadEvent>
-
-    /**
-     * The sequential consistency order (sc) of the execution.
-     *
-     * @see SequentialConsistencyOrder
-     */
-    val sequentialConsistencyOrder: Relation<AtomicThreadEvent>
-
-    /**
      * The execution order (xo) of the execution.
      *
      * @see ExecutionOrder
@@ -109,9 +95,7 @@ interface MutableExtendedExecution : ExtendedExecution, MutableExecution<AtomicT
 
     val coherenceOrderComputable: ComputableNode<CoherenceOrder>
 
-    val extendedCoherenceComputable: ComputableNode<ExtendedCoherenceOrder>
-
-    val sequentialConsistencyOrderComputable: ComputableNode<SequentialConsistencyOrder>
+//    val extendedCoherenceComputable: ComputableNode<ExtendedCoherenceOrder>
 
     val executionOrderComputable: ComputableNode<ExecutionOrder>
 
@@ -173,46 +157,19 @@ fun MutableExtendedExecution(): MutableExtendedExecution =
 
     override val coherenceOrder: Relation<AtomicThreadEvent> by coherenceOrderComputable
 
-    override val extendedCoherenceComputable = computable {
-        ExtendedCoherenceOrder(
-            execution,
-            memoryAccessEventIndex,
-            causalityOrder union writesBeforeOrderComputable.value // TODO: add coherence
-        )
-    }
-        .dependsOn(writesBeforeOrderComputable, soft = true, invalidating = true)
-        .apply {
-            // add reference to coherence order, so once it is computed
-            // it can force-set the extended coherence order
-            coherenceOrderComputable.value.extendedCoherenceOrder = this
-        }
-
-    override val extendedCoherence: Relation<AtomicThreadEvent> by extendedCoherenceComputable
-
-    override val sequentialConsistencyOrderComputable = computable {
-        SequentialConsistencyOrder(
-            execution,
-            memoryAccessEventIndex,
-            causalityOrder union extendedCoherenceComputable.value,
-            // TODO: refine eco order after sc order computation (?)
-        )
-    }
-        .dependsOn(extendedCoherenceComputable, soft = true, invalidating = true)
-
-    override val sequentialConsistencyOrder: Relation<AtomicThreadEvent> by sequentialConsistencyOrderComputable
 
     override val executionOrderComputable = computable {
         ExecutionOrder(
             execution,
             memoryAccessEventIndex,
-            causalityOrder union extendedCoherence, // TODO: add sc order
+            causalityOrder union writesBeforeOrder, // TODO: this order does not matter, as it will get replaced :)
         )
     }
-        .dependsOn(extendedCoherenceComputable, soft = true, invalidating = true)
+//        .dependsOn(extendedCoherenceComputable, soft = true, invalidating = true)
         .apply {
             // add reference to coherence order, so once it is computed
             // it can force-set the execution order
-            coherenceOrderComputable.value.executionOrder = this
+            coherenceOrderComputable.value.executionOrderNode = this
         }
 
     override val executionOrder: Relation<AtomicThreadEvent> by executionOrderComputable

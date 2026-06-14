@@ -54,15 +54,15 @@ class CoherenceOrder(
     val memoryAccessEventIndex: AtomicMemoryAccessEventIndex,
     val rmwChainsStorage: ReadModifyWriteOrder,
     val writesOrder: Relation<AtomicThreadEvent>,
-    var extendedCoherenceOrder: ComputableNode<ExtendedCoherenceOrder>? = null,
-    var executionOrder: ComputableNode<ExecutionOrder>? = null,
+    var executionOrderNode: ComputableNode<ExecutionOrder>? = null,
 ) : Relation<AtomicThreadEvent>, Computable {
 
     private var consistent: Boolean = true
 
     var enumerator = execution.buildEnumerator()
     val causalGraph = CausalGraph(execution, enumerator)
-//    val executionOrder = ExecutionOrderFast()
+
+    val extendedCoherenceOrder = ExtendedCoherenceOrder(execution, enumerator, memoryAccessEventIndex, causalityOrder union writesOrder)
 
 
     private val map = mutableMapOf<MemoryLocation, CoherenceEntry>()
@@ -94,27 +94,32 @@ class CoherenceOrder(
         check(map.isEmpty())
 
         enumerator = execution.buildEnumerator()
-        causalGraph.reset(execution, enumerator)
+        causalGraph.initialize(execution, enumerator)
         causalGraph.buildCausalGraph(causalityOrder, true)
 
         CoherenceOrderOption.generate( memoryAccessEventIndex, rmwChainsStorage, writesOrder)
             .forEach { coherence ->
-                val extendedCoherence = ExtendedCoherenceOrder(execution, memoryAccessEventIndex,
-                    writesOrder = causalityOrder union coherence
-                ).apply { initialize(); compute() }
+
+                extendedCoherenceOrder.execution = execution
+                extendedCoherenceOrder.enumerator = enumerator
+                extendedCoherenceOrder.writesOrder = causalityOrder union coherence
+
+                extendedCoherenceOrder.apply {
+                    reset()
+                    initialize()
+                    compute()
+                }
 
                 val executionOrder = ExecutionOrderFast(
                     execution, memoryAccessEventIndex,
-                    causalGraph, extendedCoherence, extendedCoherence union causalityOrder
+                    causalGraph, extendedCoherenceOrder, writesOrder
                 ).apply { initialize(); compute() }
 
                 if (!executionOrder.isConsistent())
                     return@forEach
 
                 this.map += coherence.map
-                this.extendedCoherenceOrder?.setComputed(extendedCoherence)
-                this.executionOrder?.setComputed(executionOrder)
-
+                this.executionOrderNode?.setComputed(executionOrder)
 
                 return
             }
@@ -179,50 +184,22 @@ class CoherenceOrderOption(val writesOrder: Relation<AtomicThreadEvent>) : Relat
 }
 
 class ExtendedCoherenceOrder(
-    val execution: Execution<AtomicThreadEvent>,
+    var execution: Execution<AtomicThreadEvent>,
+    var enumerator: Enumerator<AtomicThreadEvent>,
     val memoryAccessEventIndex: AtomicMemoryAccessEventIndex,
-    val writesOrder: Relation<AtomicThreadEvent>,
-): Relation<AtomicThreadEvent>, Computable {
+    var writesOrder: Relation<AtomicThreadEvent>,
+): Computable {
 
 //    private val relations: MutableMap<MemoryLocation, RelationMatrix<AtomicThreadEvent>> = mutableMapOf()
-    val relations: MutableMap<MemoryLocation, RelationAdjacencyList<AtomicThreadEvent>> = mutableMapOf()
-
-    override fun invoke(x: AtomicThreadEvent, y: AtomicThreadEvent): Boolean {
-        val location = getLocationForSameLocationAccesses(x, y)
-            ?: return false
-//        if (!(isWriteOrReadResponse(x) && isWriteOrReadResponse(y)))
-//            return false
-        return relations[location]?.get(x, y) ?: false
-    }
-
-    fun adjacent(x: AtomicThreadEvent) : Sequence<AtomicThreadEvent> {
-        val xloc = (x.label as? MemoryAccessLabel)?.location ?: return emptySequence()
-        return relations[xloc]?.adjacent(x) ?: emptySequence()
-    }
+    val map = CausalGraph(execution, enumerator)
 
     inline fun adjacentForEach(x: AtomicThreadEvent, block: (AtomicThreadEvent) -> Unit) {
-        val xloc = (x.label as? MemoryAccessLabel)?.location ?: return
-        val neighbours = relations[xloc]?.adjacent(x)
-        neighbours?.forEach { block(it) }
+        map.adjacentForEach(x, block)
     }
-
-
-    private fun isWriteOrReadResponse(x: AtomicThreadEvent): Boolean {
-        return (x.label.isWriteAccess() || x.label is ReadAccessLabel && x.label.isResponse)
-    }
-
-    fun isIrreflexive(): Boolean =
-        relations.all { (_, relation) -> relation.isIrreflexive() }
 
     override fun initialize() {
-        for (location in memoryAccessEventIndex.locations) {
-            val events = mutableListOf<AtomicThreadEvent>().apply {
-                addAll(memoryAccessEventIndex.getWrites(location))
-                addAll(memoryAccessEventIndex.getReadResponses(location))
-            }
-//            relations[location] = RelationMatrix(events, buildEnumerator(events))
-            relations[location] = RelationAdjacencyList(events)
-        }
+        map.initialize(execution, enumerator)
+        map.reset()
     }
 
     override fun compute() {
@@ -230,11 +207,10 @@ class ExtendedCoherenceOrder(
         addReadsFromEdges()
         addReadsBeforeEdges()
         addCoherenceReadFromEdges()
-        addReadsBeforeReadsFromEdges()
     }
 
     override fun reset() {
-        relations.clear()
+//        TODO()
     }
 
     private fun addCoherenceEdges() {
@@ -244,11 +220,10 @@ class ExtendedCoherenceOrder(
     }
 
     private fun addCoherenceEdges(location: MemoryLocation) {
-        val relation = relations[location]!!
         for (write1 in memoryAccessEventIndex.getWrites(location)) {
             for (write2 in memoryAccessEventIndex.getWrites(location)) {
                 if (write1 != write2 && writesOrder(write1, write2))
-                    relation[write1, write2] = true
+                    map.set(write1, write2)
             }
         }
     }
@@ -260,9 +235,8 @@ class ExtendedCoherenceOrder(
     }
 
     private fun addReadsFromEdges(location: MemoryLocation) {
-        val relation = relations[location]!!
         for (read in memoryAccessEventIndex.getReadResponses(location)) {
-            relation[read.readsFrom, read] = true
+            map.set(read.readsFrom, read)
         }
     }
 
@@ -273,11 +247,10 @@ class ExtendedCoherenceOrder(
     }
 
     private fun addReadsBeforeEdges(location: MemoryLocation) {
-        val relation = relations[location]!!
         for (read in memoryAccessEventIndex.getReadResponses(location)) {
             for (write in memoryAccessEventIndex.getWrites(location)) {
-                if (relation(read.readsFrom, write)) {
-                    relation[read, write] = true
+                if (read.readsFrom != write && writesOrder(read.readsFrom, write)) {
+                    map.set(read, write)
                 }
             }
         }
@@ -290,28 +263,10 @@ class ExtendedCoherenceOrder(
     }
 
     private fun addCoherenceReadFromEdges(location: MemoryLocation) {
-        val relation = relations[location]!!
         for (read in memoryAccessEventIndex.getReadResponses(location)) {
             for (write in memoryAccessEventIndex.getWrites(location)) {
-                if (relation(write, read.readsFrom)) {
-                    relation[write, read] = true
-                }
-            }
-        }
-    }
-
-    private fun addReadsBeforeReadsFromEdges() {
-        for (location in memoryAccessEventIndex.locations) {
-            addReadsBeforeReadsFromEdges(location)
-        }
-    }
-
-    private fun addReadsBeforeReadsFromEdges(location: MemoryLocation) {
-        val relation = relations[location]!!
-        for (read1 in memoryAccessEventIndex.getReadResponses(location)) {
-            for (read2 in memoryAccessEventIndex.getReadResponses(location)) {
-                if (relation(read1, read2.readsFrom)) {
-                    relation[read1, read2] = true
+                if (write != read.readsFrom && writesOrder(write, read.readsFrom)) {
+                    map.set(write, read)
                 }
             }
         }
@@ -342,7 +297,16 @@ class CausalGraph(var execution: Execution<AtomicThreadEvent>, var enumerator: E
         return Array(capacityEvents) { IntArray(capacityThreads) { EMPTY_VALUE } }
     }
 
-    fun reset(newExecution: Execution<AtomicThreadEvent>, newEnumerator: Enumerator<AtomicThreadEvent>) {
+    fun reset() {
+        for (i in 0 until nEvents) {
+            for (j in 0 until nThreads) {
+                map[i][j] = EMPTY_VALUE
+            }
+        }
+    }
+
+
+    fun initialize(newExecution: Execution<AtomicThreadEvent>, newEnumerator: Enumerator<AtomicThreadEvent>) {
         val shouldResize = capacityEvents < newExecution.size || capacityThreads < (newExecution.maxThreadId + 1)
         this.execution = newExecution
         this.enumerator = newEnumerator
@@ -374,6 +338,34 @@ class CausalGraph(var execution: Execution<AtomicThreadEvent>, var enumerator: E
     fun adjacent(event: AtomicThreadEvent): Sequence<AtomicThreadEvent> {
         val arr = map[enumerator[event]]
         return arr.map { if (it == EMPTY_VALUE ) null else enumerator[it] }.filterNotNull().asSequence()
+    }
+
+    fun set(event1: AtomicThreadEvent, event2: AtomicThreadEvent) {
+        val idx1 = enumerator[event1]
+        val idx2 = enumerator[event2]
+
+        val arr = map[idx1]
+        val idxExisting = arr[event2.threadId]
+        if (idxExisting == EMPTY_VALUE) {
+            arr[event2.threadId] = idx2
+            return
+        }
+
+        val eventExisting = enumerator[idxExisting]
+        check(eventExisting.threadId == event2.threadId)
+
+        if(eventExisting.threadId > event2.threadId) {
+            arr[event2.threadId] = idx2
+        }
+    }
+
+    fun get(event1: AtomicThreadEvent, event2: AtomicThreadEvent) : Boolean {
+        val idx1 = enumerator[event1]
+        val idx2 = enumerator[event2]
+
+        val arr = map[idx1]
+        val idxExisting = arr[event2.threadId]
+        return idxExisting == idx2
     }
 
     inline fun adjacentForEach(event: AtomicThreadEvent, block: (AtomicThreadEvent) -> Unit) {

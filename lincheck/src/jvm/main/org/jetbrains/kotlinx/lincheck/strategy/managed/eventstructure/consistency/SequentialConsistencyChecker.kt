@@ -229,7 +229,6 @@ class IncrementalSequentialConsistencyChecker(
     private fun resetRelations() {
         execution.writesBeforeOrderComputable.reset()
         execution.coherenceOrderComputable.reset()
-        execution.extendedCoherenceComputable.reset()
     }
 
 }
@@ -261,11 +260,13 @@ class SequentialConsistencyOrder(
     }
 
     override fun initialize() {
+        TODO()
         // TODO: optimize -- build the relation only for write and read-response events
         relation = RelationMatrix(execution, execution.buildEnumerator())
     }
 
     override fun compute() {
+        TODO()
         val relation = this.relation!!
         relation.add(memoryAccessOrder)
         relation.fixpoint {
