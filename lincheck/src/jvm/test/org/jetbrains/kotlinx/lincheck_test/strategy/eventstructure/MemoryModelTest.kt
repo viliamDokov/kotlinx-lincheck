@@ -218,4 +218,31 @@ class MemoryModelTest {
         }
     }
 
+
+    @Test
+    fun testLastZero() {
+        val N = 10;
+        litmusTest(assertSame(setOf(0), UNKNOWN)) {
+
+            val array = IntArray(N + 1) { 0 }
+            val threads = Array<Thread?>(N + 1) { null }
+
+            for(i in 0 until N + 1) {
+                if (i == 0) {
+                    threads[i] = thread {
+                        var j = N
+                        while (array[j--] != 0) {}
+                    }
+                } else {
+                    threads[i] = thread {
+                        array[i] = array[i-1] + 1
+                    }
+                }
+            }
+
+            threads.forEach { it!!.join() }
+            0
+        }
+    }
+
 }
