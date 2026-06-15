@@ -303,8 +303,8 @@ internal class EventStructure(
         // which always pass in a parent
         check((event.label !is InitializationLabel) implies (event.parent != null)) { "Backtracked event must have a parent: $event" }
 
+        val causalityFrontier = execution.calculateFrontier(event.causalityClock)
         val newPinnedEvents = pinnedEvents.copy().apply {
-            val causalityFrontier = execution.calculateFrontier(event.causalityClock)
             merge(causalityFrontier)
             cut(conflicts)
             cut(getDanglingRequests())
@@ -317,11 +317,16 @@ internal class EventStructure(
             // or are observed by the event, a la GenMC
             cut(conflicts)
             cut { cutEvent ->
-                (
-                    // This is safe because of the check at the beginning of the function
-                    cutEvent.id <= event.parent!!.id  ||
-                    newPinnedEvents.contains(cutEvent)
+                val shouldDelete = (
+                    // Deleted events are with id > than the parent request event which are not in the causality frontier of
+                    event.parent!!.id < cutEvent.id && // This is safe because of the check at the beginning of the function
+                    !causalityFrontier.contains(cutEvent)
                 )
+                // Bail out if one of the events we want to delete is pinned
+                if (shouldDelete && pinnedEvents.contains(cutEvent)) {
+                    return
+                }
+                !shouldDelete
             }
             // NOTE: this can break some tests when locks and monitors are introduced again.
             addUnblockingResponses(conflicts)
