@@ -78,17 +78,20 @@ fun isRecognizedUninstrumentedStandardLibraryClass(className: String) =
 //   Instrumentation libraries
 // ========================================================
 
+val isAsmClassPrefix = listOf("org", "objectweb", "asm").joinToString(".")
 fun isAsmClass(className: String): Boolean =
     // use a hack to circumvent package shadowing, see `TraceAgentTasks.kt`
-    className.startsWith(listOf("org", "objectweb", "asm").joinToString("."))
+    className.startsWith(isAsmClassPrefix)
 
+val isByteBuddyClassPrefix = listOf("net", "bytebuddy").joinToString(".")
 fun isByteBuddyClass(className: String): Boolean =
     // use a hack to circumvent package shadowing, see `TraceAgentTasks.kt`
-    className.startsWith(listOf("net", "bytebuddy").joinToString("."))
+    className.startsWith(isByteBuddyClassPrefix)
 
+val isJavaWebSocketClassPrefix = listOf("org", "java_websocket").joinToString(".")
 fun isJavaWebSocketClass(className: String): Boolean =
     // use a hack to circumvent package shadowing, see `TraceAgentTasks.kt`
-    className.startsWith(listOf("org", "java_websocket").joinToString("."))
+    className.startsWith(isJavaWebSocketClassPrefix)
 
 /**
  * Checks whether the given class name belongs to the Gradle framework.
@@ -113,9 +116,10 @@ fun isRecognizedTestingLibraryClass(className: String) =
 /**
  * Checks if the given class name corresponds to a recognized logging library class.
  */
+val recognizedLoggingLibraryClassesPrefix = listOf("org", "slf4j").joinToString(".") + "."
 fun isRecognizedLoggingLibraryClass(className: String) =
     // use a hack to circumvent package shadowing, see `TraceAgentTasks.kt`
-    className.startsWith(listOf("org", "slf4j").joinToString(".") + ".")
+    className.startsWith(recognizedLoggingLibraryClassesPrefix)
 
 /**
  * Determines whether a given class name belongs to a recognized Apache library.

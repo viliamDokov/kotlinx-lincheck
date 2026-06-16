@@ -381,6 +381,9 @@ internal class EventStructure(
             source = source,
             dependencies = listOfNotNull(allocation, source) + dependencies,
         )
+        if (event.parent != null) {
+            check(event.parent.threadId == event.threadId && event.parent.threadPosition == event.threadPosition - 1)
+        }
         _events.add(event)
         // if the event is not visited immediately,
         // then we create a backtracking point to visit it later

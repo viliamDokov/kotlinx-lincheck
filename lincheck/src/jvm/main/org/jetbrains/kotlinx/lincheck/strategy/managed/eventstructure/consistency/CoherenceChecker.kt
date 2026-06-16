@@ -196,6 +196,7 @@ class ExtendedCoherenceOrder(
 
 //    private val relations: MutableMap<MemoryLocation, RelationMatrix<AtomicThreadEvent>> = mutableMapOf()
     val map = CausalGraph(execution, enumerator)
+//    val map = CausalGraph(execution, enumerator)
 
     inline fun adjacentForEach(x: AtomicThreadEvent, block: (AtomicThreadEvent) -> Unit) {
         map.adjacentForEach(x, block)
@@ -375,4 +376,107 @@ class CausalGraph(var execution: Execution<AtomicThreadEvent>, var enumerator: E
         }
     }
 
+}
+
+class FooGraph(var execution: Execution<AtomicThreadEvent>, var enumerator: Enumerator<AtomicThreadEvent>) {
+    companion object {
+        val EMPTY_VALUE: Int = -1
+    }
+
+    val nEvents : Int
+        get() =  execution.size
+    val nThreads : Int
+        get() =  execution.maxThreadId + 1
+
+    var capacityEvents: Int = 0
+    var capacityThreads: Int = 0
+        get() = nEvents
+    var map : Array<IntArray> = allocateNewMap()
+
+
+    fun allocateNewMap() : Array<IntArray> {
+        capacityEvents = (nEvents * 1.5).roundToInt()
+        capacityThreads = nThreads
+        return Array(capacityEvents) { IntArray(capacityThreads + 1) { 0 } }
+    }
+
+    fun reset() {
+        for (i in 0 until nEvents) {
+            map[i][0] = 0
+        }
+    }
+
+    fun initialize(newExecution: Execution<AtomicThreadEvent>, newEnumerator: Enumerator<AtomicThreadEvent>) {
+        val shouldResize = capacityEvents < newExecution.size || capacityThreads < (newExecution.maxThreadId + 1)
+        execution = newExecution
+        enumerator = newEnumerator
+        if(shouldResize) {
+            map = allocateNewMap()
+        }
+        reset()
+    }
+
+    fun set(event1: AtomicThreadEvent, event2: AtomicThreadEvent) {
+        val idx1 = enumerator[event1]
+        val idx2 = enumerator[event2]
+        check(idx2 != -1)
+
+        val arr = map[idx1]
+        val size = arr[0]
+
+        for (i in 1 until size+1) {
+            val element = enumerator[arr[i]]
+            if (element.threadId != event2.threadId) continue
+            if (element.threadPosition > event2.threadPosition) {
+                arr[i] = idx2
+            }
+            return
+        }
+
+        // Element for this thread has not yet been found so we return
+        arr[size+1] = idx2
+        arr[0] = size + 1
+    }
+
+    fun buildCausalGraph(relation: Relation<AtomicThreadEvent>, respectsProgramOrder: Boolean) {
+        for (eventId in 0 until nEvents) {
+            val event = enumerator[eventId]
+            for (threadId in 0 until nThreads) { // NOTE: we can skip -1
+                val threadEvents = execution.get(threadId) ?: continue
+                val position = if (respectsProgramOrder) {
+                    // TODO: this uses binary search from utils. Replace it with standard binary search function (I did not want to use my brain right now)
+                    threadEvents.binarySearch { relation(event, it) }
+                } else {
+                    threadEvents.indexOfFirst { relation(event, it) }
+                }
+
+                val targetEvent = execution[threadId, position]
+                if(targetEvent != null) {
+                    set(event, targetEvent)
+                }
+            }
+        }
+    }
+
+    fun get(event1: AtomicThreadEvent, event2: AtomicThreadEvent) : Boolean {
+        val idx1 = enumerator[event1]
+        val idx2 = enumerator[event2]
+
+        val arr = map[idx1]
+        val size = arr[0]
+        for (i in 0 until size) {
+            if (arr[i + 1] == idx2) {
+                return true
+            }
+        }
+        return false
+    }
+
+    inline fun adjacentForEach(event: AtomicThreadEvent, block: (AtomicThreadEvent) -> Unit) {
+        val arr = map[enumerator[event]]
+        for (i in 0 until arr[0]) {
+            val it = arr[i+1]
+            block(enumerator[it])
+        }
+    }
 }

@@ -222,7 +222,7 @@ class MemoryModelTest {
     @Test
     fun testLastZero() {
         val N = 10;
-        litmusTest(assertSame(setOf(0), UNKNOWN)) {
+        litmusTest(assertSame(setOf(0), 3328),  200_000) {
 
             val array = IntArray(N + 1) { 0 }
             val threads = Array<Thread?>(N + 1) { null }
