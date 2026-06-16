@@ -599,6 +599,10 @@ object ExperimentalModelCheckingTransformationProfile : TransformationProfile {
             trackArrayCopy = true
 
             interceptReadResults = true
+
+            trackLoops = true
+            trackIrreducibleLoops = true
+            trackAwaitLoops = false // TODO: This is broken currently
         }
     }
 }
