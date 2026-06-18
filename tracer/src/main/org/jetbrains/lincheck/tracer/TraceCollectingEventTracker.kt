@@ -502,6 +502,17 @@ class TraceCollectingEventTracker(
         strategy.tracePointCreated(threadData.currentTopTracePoint(), tracePoint)
     }
 
+    override fun onArrayCopy(
+        descriptor: ThreadDescriptor?,
+        srcArray: Any?,
+        srcPos: Int,
+        dstArray: Any?,
+        dstPos: Int,
+        length: Int
+    ) {
+        TODO("Not yet implemented")
+    }
+
     override fun onMethodCall(
         threadDescriptor: ThreadDescriptor,
         codeLocation: Int,
