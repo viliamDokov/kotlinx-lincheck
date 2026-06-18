@@ -31,4 +31,20 @@ class CyclicBarrierTest {
         t1.join()
         t2.join()
     }
+
+    @Test
+    fun testBarrierEventStructure() = runConcurrentTest(10000, experimentalModelChecking = true) {
+        val barrier = CyclicBarrier(2)
+
+        val t1 = thread {
+            barrier.await()
+        }
+        val t2 = thread {
+            barrier.await()
+        }
+
+        t1.join()
+        t2.join()
+    }
+
 }

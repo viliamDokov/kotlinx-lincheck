@@ -35,4 +35,23 @@ class CountDownLatchTest {
         threads.forEach { it.join() }
         check(counter.get() == nThreads)
     }
+
+    @Test
+    fun testLatchCountdownEventStructure() = Lincheck.runConcurrentTest(10000, experimentalModelChecking = true) {
+        val nThreads = 2
+        val threads = mutableListOf<Thread>()
+        val latch = CountDownLatch(1)
+        val counter = AtomicInteger(0)
+
+        for (i in 0 until nThreads)
+            threads += thread {
+                latch.await()
+                counter.incrementAndGet()
+            }
+
+        latch.countDown()
+        threads.forEach { it.join() }
+        check(counter.get() == nThreads)
+    }
+
 }

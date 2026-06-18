@@ -45,4 +45,12 @@ class ConcurrentSkipListMapTest {
         .loopIterationsBeforeThreadSwitch(20)
         .analyzeStdLib(true)
         .check(this::class)
+
+    @Test
+    fun eventStructureModelCheckingTest() = ModelCheckingOptions()
+        .checkObstructionFreedom(true)
+        .loopIterationsBeforeThreadSwitch(20)
+        .analyzeStdLib(true)
+        .useExperimentalModelChecking()
+        .check(this::class)
 }
