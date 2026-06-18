@@ -633,6 +633,25 @@ internal class EventStructure(
             // random labels do not synchronize
             label is RandomLabel -> sequenceOf()
 
+            label is ThreadJoinLabel -> execution.mapNotNull {
+                val itLabel = it.label as? ThreadFinishLabel ?: return@mapNotNull null
+                if (!itLabel.finishedThreadIds.containsAll(label.joinThreadIds)) {
+                    return@mapNotNull null
+                }
+                it
+            }.asSequence()
+
+            label is ThreadFinishLabel -> sequenceOf()
+
+            label is ThreadStartLabel -> execution.mapNotNull {
+                val itLabel = it.label
+                when {
+                    itLabel is InitializationLabel -> it
+                    itLabel is ThreadForkLabel && itLabel.forkThreadIds.contains(label.threadId)-> it
+                    else -> null
+                }
+            }.asSequence()
+
             // otherwise we pessimistically assume that any event can potentially synchronize
             else -> execution.asSequence()
         }
