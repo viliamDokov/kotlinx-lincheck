@@ -617,9 +617,6 @@ object LincheckInstrumentation {
         processedObjects: MutableSet<Any>,
         classesToTransform: MutableSet<Class<*>>,
     ) {
-        val clazz = obj.javaClass
-        if (clazz.name in instrumentedClasses) return
-
         traverseObjectGraph(obj, processedObjects,
             config = ObjectGraphTraversalConfig(
                 // static fields are not traversed here since Lincheck analysis

@@ -700,8 +700,14 @@ private class EventStructureMemoryTracker(
         )
     }
 
+    val transformedObjects = mutableSetOf<ObjectNumber>()
     override fun interceptReadResult(iThread: Int): Any? {
         return addReadResponse(iThread)?.unwrap()?.also {
+            val entry = objectTracker.get(it)
+            if (entry?.objectNumber in transformedObjects) {
+                return@also
+            }
+            if(entry != null) transformedObjects.add(entry.objectNumber)
             LincheckInstrumentation.ensureObjectIsTransformed(it)
         }
     }
