@@ -635,7 +635,7 @@ internal class EventStructure(
 
             label is ThreadJoinLabel -> execution.mapNotNull {
                 val itLabel = it.label as? ThreadFinishLabel ?: return@mapNotNull null
-                if (!itLabel.finishedThreadIds.containsAll(label.joinThreadIds)) {
+                if (!label.joinThreadIds.any { id -> itLabel.finishedThreadIds.contains(id) } ) {
                     return@mapNotNull null
                 }
                 it
