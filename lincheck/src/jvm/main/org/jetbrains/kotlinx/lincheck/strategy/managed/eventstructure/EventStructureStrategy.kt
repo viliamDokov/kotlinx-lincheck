@@ -549,57 +549,61 @@ private class EventStructureMemoryTracker(
 
     private fun addReadRequest(iThread: Int, codeLocation: Int, location: MemoryLocation, memoryOrder: MemoryOrdering,
                                readModifyWriteDescriptor: ReadModifyWriteDescriptor? = null, ) {
-        eventStructure.addReadRequest(iThread, codeLocation, location, memoryOrder, readModifyWriteDescriptor)
+        Timer.measure(1) {
+            eventStructure.addReadRequest(iThread, codeLocation, location, memoryOrder, readModifyWriteDescriptor)
+        }
     }
 
     private fun addReadResponse(iThread: Int): OpaqueValue? {
-        val event = eventStructure.addReadResponse(iThread)
-        val label = (event.label as ReadAccessLabel)
-        val rmwDescriptor = label.readModifyWriteDescriptor
-        // regular non-RMW read - return the read value
-        if (rmwDescriptor == null) {
-            return getValue(label.location, label.value)
-        }
-        // handle different kinds of RMWs
-        // TODO: perform actual write to memory for successful CAS
-        when (rmwDescriptor) {
-            is ReadModifyWriteDescriptor.GetAndSetDescriptor -> {
-                val newValueID = rmwDescriptor.newValue
-                val newValue = getValue(label.location, newValueID)
-                eventStructure.addWriteEvent(iThread, label.codeLocation, label.location, label.memoryOrdering, newValueID, rmwDescriptor)
-                label.location.write(newValue?.unwrap(), eventStructureObjectTracker::getValue)
+        Timer.measure(2) {
+            val event = eventStructure.addReadResponse(iThread)
+            val label = (event.label as ReadAccessLabel)
+            val rmwDescriptor = label.readModifyWriteDescriptor
+            // regular non-RMW read - return the read value
+            if (rmwDescriptor == null) {
                 return getValue(label.location, label.value)
             }
-
-            is ReadModifyWriteDescriptor.CompareAndSetDescriptor -> {
-                if (label.value == rmwDescriptor.expectedValue) {
+            // handle different kinds of RMWs
+            // TODO: perform actual write to memory for successful CAS
+            when (rmwDescriptor) {
+                is ReadModifyWriteDescriptor.GetAndSetDescriptor -> {
                     val newValueID = rmwDescriptor.newValue
                     val newValue = getValue(label.location, newValueID)
                     eventStructure.addWriteEvent(iThread, label.codeLocation, label.location, label.memoryOrdering, newValueID, rmwDescriptor)
                     label.location.write(newValue?.unwrap(), eventStructureObjectTracker::getValue)
-                    return getValue(Types.BOOLEAN_TYPE, true.toInt().toLong())
+                    return getValue(label.location, label.value)
                 }
-                return getValue(Types.BOOLEAN_TYPE, false.toInt().toLong())
-            }
 
-            is ReadModifyWriteDescriptor.CompareAndExchangeDescriptor -> {
-                if (label.value == rmwDescriptor.expectedValue) {
-                    val newValueID = rmwDescriptor.newValue
+                is ReadModifyWriteDescriptor.CompareAndSetDescriptor -> {
+                    if (label.value == rmwDescriptor.expectedValue) {
+                        val newValueID = rmwDescriptor.newValue
+                        val newValue = getValue(label.location, newValueID)
+                        eventStructure.addWriteEvent(iThread, label.codeLocation, label.location, label.memoryOrdering, newValueID, rmwDescriptor)
+                        label.location.write(newValue?.unwrap(), eventStructureObjectTracker::getValue)
+                        return getValue(Types.BOOLEAN_TYPE, true.toInt().toLong())
+                    }
+                    return getValue(Types.BOOLEAN_TYPE, false.toInt().toLong())
+                }
+
+                is ReadModifyWriteDescriptor.CompareAndExchangeDescriptor -> {
+                    if (label.value == rmwDescriptor.expectedValue) {
+                        val newValueID = rmwDescriptor.newValue
+                        val newValue = getValue(label.location, newValueID)
+                        eventStructure.addWriteEvent(iThread, label.codeLocation, label.location, label.memoryOrdering, newValueID, rmwDescriptor)
+                        label.location.write(newValue?.unwrap(), eventStructureObjectTracker::getValue)
+                    }
+                    return getValue(label.location, label.value)
+                }
+
+                is ReadModifyWriteDescriptor.FetchAndAddDescriptor -> {
+                    val newValueID = label.value + rmwDescriptor.delta
                     val newValue = getValue(label.location, newValueID)
                     eventStructure.addWriteEvent(iThread, label.codeLocation, label.location, label.memoryOrdering, newValueID, rmwDescriptor)
                     label.location.write(newValue?.unwrap(), eventStructureObjectTracker::getValue)
-                }
-                return getValue(label.location, label.value)
-            }
-
-            is ReadModifyWriteDescriptor.FetchAndAddDescriptor -> {
-                val newValueID = label.value + rmwDescriptor.delta
-                val newValue = getValue(label.location, newValueID)
-                eventStructure.addWriteEvent(iThread, label.codeLocation, label.location, label.memoryOrdering, newValueID, rmwDescriptor)
-                label.location.write(newValue?.unwrap(), eventStructureObjectTracker::getValue)
-                return when (rmwDescriptor.kind) {
-                    ReadModifyWriteDescriptor.IncrementKind.Pre  -> getValue(label.location, label.value)
-                    ReadModifyWriteDescriptor.IncrementKind.Post -> getValue(label.location, newValueID)
+                    return when (rmwDescriptor.kind) {
+                        ReadModifyWriteDescriptor.IncrementKind.Pre  -> getValue(label.location, label.value)
+                        ReadModifyWriteDescriptor.IncrementKind.Post -> getValue(label.location, newValueID)
+                    }
                 }
             }
         }

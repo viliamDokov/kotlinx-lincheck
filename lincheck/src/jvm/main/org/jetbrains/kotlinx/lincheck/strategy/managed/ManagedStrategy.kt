@@ -1339,7 +1339,8 @@ internal abstract class ManagedStrategy(
         array: Any?,
         index: Int,
         resultInterceptor: ResultInterceptor?,
-    ): Unit = threadDescriptor.runInsideIgnoredSection {
+    ): Unit =  threadDescriptor.runInsideIgnoredSection {
+        Timer.measure(0) {
         if (array == null) return // ignore, `NullPointerException` will be thrown
         updateSnapshotOnArrayElementAccess(array, index)
         if (!shouldTrackArrayAccess(array)) {
@@ -1355,7 +1356,8 @@ internal abstract class ManagedStrategy(
             resultInterceptor?.interceptResult(memoryTracker!!.interceptReadResult(threadId))
         }
         return
-    }
+    } }
+
 
     override fun afterReadField(
         threadDescriptor: ThreadDescriptor,
@@ -2760,3 +2762,105 @@ private const val OBSTRUCTION_FREEDOM_THREAD_JOIN_VIOLATION_MESSAGE =
 
 private const val OBSTRUCTION_FREEDOM_SUSPEND_VIOLATION_MESSAGE =
     "The algorithm should be non-blocking, but a coroutine suspension is detected"
+
+
+object Timer {
+
+    val measurements = arrayOf(
+        LongRingBuffer(100),
+        LongRingBuffer(100),
+        LongRingBuffer(100),
+        LongRingBuffer(100),
+        LongRingBuffer(100),
+        LongRingBuffer(100),
+        LongRingBuffer(100),
+        LongRingBuffer(100),
+        LongRingBuffer(100),
+        LongRingBuffer(100),
+    )
+
+
+    fun idToName(i: Int): String = when(i) {
+        0 -> "Array Get"
+        1 -> "Add read request"
+        2 -> "Mem manager: Add read response"
+        3 -> " ES Add response events"
+        4 -> "Add repsonse events no replay"
+        else -> "Unknown"
+    }
+
+    inline fun<T> measure(i: Int, block: () -> T) : T {
+        val start = System.nanoTime()
+        try {
+            return block()
+        } finally {
+            measurements[i].push(System.nanoTime() - start)
+        }
+    }
+
+    override fun toString(): String {
+        val res = StringBuilder()
+        res.append("Timer measurements:\n")
+        for(i in 0 until  measurements.size) {
+            val measurement = measurements[i]
+            res.appendLine("${idToName(i)}: $measurement")
+        }
+        return res.toString();
+    }
+
+}
+
+class IntRingBuffer(val capacity: Int) {
+
+    val buffer = IntArray(capacity)
+    var idx : Int = 0;
+
+    fun push(value: Int) {
+        buffer[idx++] = value
+        if (idx >= capacity) idx = 0
+    }
+
+    inline fun forEach(block: (Int) -> Unit ) {
+        for (i in idx until capacity) {
+            block(buffer[i])
+        }
+        for (i in 0 until idx) {
+            block(buffer[i])
+        }
+    }
+}
+
+class LongRingBuffer(val capacity: Int) {
+
+    val buffer = LongArray(capacity)
+    var idx : Int = 0;
+    var count: Int = 0;
+    var sum: Long = 0;
+
+    fun push(value: Long) {
+        buffer[idx++] = value
+        count++;
+        sum+= value
+        if (idx >= capacity) idx = 0
+    }
+
+    override fun toString(): String {
+        val res = StringBuilder()
+        val ms = 1_000_000.0
+        res.append("$count | ${sum.toDouble() / ms} ms | ${ (sum/(count+1)).toDouble() / ms } ms [")
+        for(i in 0 until  capacity) {
+            res.append("${buffer[i]}, ")
+        }
+        res.append("]")
+        return res.toString();
+    }
+
+    inline fun forEach(block: (Long) -> Unit ) {
+        for (i in idx until capacity) {
+            block(buffer[i])
+        }
+        for (i in 0 until idx) {
+            block(buffer[i])
+        }
+    }
+}

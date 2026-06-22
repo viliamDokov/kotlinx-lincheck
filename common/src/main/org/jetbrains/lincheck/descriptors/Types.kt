@@ -325,7 +325,7 @@ fun KClass<*>.getArrayElementType(): Type = when {
     this.java.componentType == Short::class.javaObjectType   -> SHORT_TYPE_BOXED
     this.java.componentType == Char::class.javaObjectType    -> CHAR_TYPE_BOXED
 
-    this.java.isArray           -> OBJECT_TYPE // We cannot
+    this.java.isArray           -> OBJECT_TYPE
     // TODO: should we handle atomic arrays?
     else                -> throw IllegalArgumentException("Argument is not array")
 }
