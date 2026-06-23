@@ -302,21 +302,14 @@ internal class EventStructureStrategy(
     override fun chooseThread(iThread: Int): Int {
         // see comment in `shouldSwitch` method
         // TODO: make scheduling strategy configurable
-        return if (currentExecutionPart == ExecutionPart.PARALLEL) {
-            val threads = switchableThreads(iThread)
-            // We prefer to switch to a non-livelocked thread
-            val preferredChoice = threads.firstOrNull { !threadScheduler.isLiveLocked(it) }
-            // If there is no such option, we choose the first livelocked thread instead
-            val choice = threads.firstOrNull()
-            preferredChoice ?: choice ?: -1
-        }
+        return if (currentExecutionPart == ExecutionPart.PARALLEL)
+            switchableThreads(iThread).first()
         else
             eventStructure.mainThreadId
     }
 
     override fun isActive(iThread: Int): Boolean {
-        // Note: We may want to switch to a livelocked thread in case it you can schedule it
-        return (super.isActive(iThread) || threadScheduler.isLiveLocked(iThread)) && (eventStructure.inReplayPhase() implies {
+        return super.isActive(iThread) && (eventStructure.inReplayPhase() implies {
             eventStructure.inReplayPhase(iThread) && eventStructure.canReplayNextEvent(iThread)
         })
     }
