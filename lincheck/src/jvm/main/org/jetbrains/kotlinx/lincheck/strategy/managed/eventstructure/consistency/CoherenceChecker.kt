@@ -31,14 +31,16 @@ typealias CoherenceList = List<AtomicThreadEvent>
 class CoherenceChecker : ConsistencyChecker<AtomicThreadEvent, MutableExtendedExecution> {
 
     override fun check(execution: MutableExtendedExecution): Inconsistency? {
-        execution.coherenceOrderComputable.apply {
-            initialize()
-            compute()
+        FooTimer.measure(7) {
+            execution.coherenceOrderComputable.apply {
+                initialize()
+                compute()
+            }
+            val coherenceOrder = execution.coherenceOrderComputable.value
+            return if (!coherenceOrder.isConsistent())
+                CoherenceViolation()
+            else null
         }
-        val coherenceOrder = execution.coherenceOrderComputable.value
-        return if (!coherenceOrder.isConsistent())
-            CoherenceViolation()
-        else null
     }
 
 }

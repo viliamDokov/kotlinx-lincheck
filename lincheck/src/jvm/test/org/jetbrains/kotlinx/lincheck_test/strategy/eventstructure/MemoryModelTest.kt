@@ -20,7 +20,7 @@
 
 package org.jetbrains.kotlinx.lincheck_test.strategy.eventstructure
 
-import org.jetbrains.kotlinx.lincheck.strategy.managed.Timer
+import org.jetbrains.kotlinx.lincheck.strategy.managed.FooTimer
 import java.util.concurrent.atomic.*
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.*
 
@@ -244,6 +244,6 @@ class MemoryModelTest {
             threads.forEach { it!!.join() }
             0
         }
-        println("Done ${Timer}")
+        println("Done ${FooTimer}")
     }
 }

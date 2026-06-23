@@ -893,9 +893,9 @@ internal class EventStructure(
     }
 
     private fun addResponseEvents(requestEvent: AtomicThreadEvent): Pair<AtomicThreadEvent?, List<AtomicThreadEvent>> {
-        Timer.measure(3) {
+        FooTimer.measure(3) {
             require(requestEvent.label.isRequest)
-            Timer.measure(5) {
+            FooTimer.measure(5) {
                 tryReplayEvent(requestEvent.threadId)?.let { event ->
                     val resyncLabel = event.resynchronize(syncAlgebra)
                     check(event.label.isResponse)
@@ -905,7 +905,7 @@ internal class EventStructure(
                     return event to listOf(event)
                 }
             }
-            Timer.measure(4) {
+            FooTimer.measure(4) {
                 if (isBlockedRequest(requestEvent)) {
                     val event = getUnblockingResponse(requestEvent)
                         ?: return (null to listOf())

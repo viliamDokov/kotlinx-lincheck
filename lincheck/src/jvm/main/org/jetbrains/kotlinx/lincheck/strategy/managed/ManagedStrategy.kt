@@ -1340,7 +1340,7 @@ internal abstract class ManagedStrategy(
         index: Int,
         resultInterceptor: ResultInterceptor?,
     ): Unit =  threadDescriptor.runInsideIgnoredSection {
-        Timer.measure(0) {
+        FooTimer.measure(0) {
         if (array == null) return // ignore, `NullPointerException` will be thrown
         updateSnapshotOnArrayElementAccess(array, index)
         if (!shouldTrackArrayAccess(array)) {
@@ -2764,7 +2764,7 @@ private const val OBSTRUCTION_FREEDOM_SUSPEND_VIOLATION_MESSAGE =
     "The algorithm should be non-blocking, but a coroutine suspension is detected"
 
 
-object Timer {
+object FooTimer {
 
     val measurements = arrayOf(
         LongRingBuffer(100),
@@ -2786,6 +2786,9 @@ object Timer {
         2 -> "Mem manager: Add read response"
         3 -> " ES Add response events"
         4 -> "Add repsonse events no replay"
+        5 -> "Add repsonse REPLAY"
+        6 -> "Check consitency"
+        7 -> "Full Consistency check"
         else -> "Unknown"
     }
 

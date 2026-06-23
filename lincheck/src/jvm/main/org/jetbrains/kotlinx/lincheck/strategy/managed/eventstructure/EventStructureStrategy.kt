@@ -549,13 +549,13 @@ private class EventStructureMemoryTracker(
 
     private fun addReadRequest(iThread: Int, codeLocation: Int, location: MemoryLocation, memoryOrder: MemoryOrdering,
                                readModifyWriteDescriptor: ReadModifyWriteDescriptor? = null, ) {
-        Timer.measure(1) {
+        FooTimer.measure(1) {
             eventStructure.addReadRequest(iThread, codeLocation, location, memoryOrder, readModifyWriteDescriptor)
         }
     }
 
     private fun addReadResponse(iThread: Int): OpaqueValue? {
-        Timer.measure(2) {
+        FooTimer.measure(2) {
             val event = eventStructure.addReadResponse(iThread)
             val label = (event.label as ReadAccessLabel)
             val rmwDescriptor = label.readModifyWriteDescriptor

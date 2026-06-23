@@ -193,7 +193,9 @@ fun MutableExtendedExecution(): MutableExtendedExecution =
         get() = consistencyChecker.state.inconsistency
 
     override fun checkConsistency(): Inconsistency? {
-        return consistencyChecker.check()
+        org.jetbrains.kotlinx.lincheck.strategy.managed.FooTimer.measure(6){
+            return consistencyChecker.check()
+        }
     }
 
     override fun add(event: AtomicThreadEvent) {
