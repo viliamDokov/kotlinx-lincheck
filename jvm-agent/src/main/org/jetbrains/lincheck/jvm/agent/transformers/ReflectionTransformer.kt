@@ -63,8 +63,9 @@ internal class ReflectionTransformer(
             original = {},
             instrumented = {
                 dup()
+                push(name)
                 invokeStatic(ThreadDescriptor::getCurrentThreadDescriptor)
-                invokeStatic(Injections::afterNewObjectCreation)
+                invokeStatic(Injections::afterObjectConstructor)
             }
         )
     }
