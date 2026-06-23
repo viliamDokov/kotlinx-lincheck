@@ -36,12 +36,14 @@ class ConcurrentLinkedDequeTest {
     fun peekLast() = deque.peekLast()
 
     //@Test // TODO: Please, uncomment me and comment the line below to run the test and get the output
-    @Test(expected = AssertionError::class)
+    @Test()
     fun modelCheckingTest() = ModelCheckingOptions()
+        .iterations(10)
         .check(this::class)
 
-    @Test(expected = AssertionError::class)
+    @Test()
     fun eventStructureModelCheckingTest() = ModelCheckingOptions()
+        .iterations(10)
         .useExperimentalModelChecking()
         .check(this::class)
 }

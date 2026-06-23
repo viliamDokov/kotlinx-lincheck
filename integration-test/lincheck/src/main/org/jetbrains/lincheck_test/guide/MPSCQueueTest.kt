@@ -34,6 +34,7 @@ class MPSCQueueTest {
     @Test
     fun modelCheckingTest() = ModelCheckingOptions().check(this::class)
 
+    // NOTE: We oom because we are stuck in a spin-loop
     @Test
     fun eventStructureModelCheckingTest() = ModelCheckingOptions().useExperimentalModelChecking().check(this::class)
 }
