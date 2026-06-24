@@ -45,25 +45,19 @@ operator fun VectorClock.plus(other: VectorClock): MutableVectorClock =
     copy().apply { merge(other) }
 
 fun VectorClock(): VectorClock =
-    IntArrayClock()
+    ThreadMapClock()
 
 fun MutableVectorClock(defaultVal: Int = -1): MutableVectorClock =
-    IntArrayClock(defaultVal)
+    ThreadMapClock(defaultVal)
 
 fun VectorClock.copy(): MutableVectorClock {
     // TODO: make VectorClock sealed interface?
-    when (this) {
-        is ThreadMapClock -> return copy()
-        is IntArrayClock -> return copy()
-    }
     check(this is ThreadMapClock)
     return copy()
 }
 
-private class IntArrayClock(val defaultVal: Int = -1, capacity: Int = 0) : MutableVectorClock {
-
-    var clock = emptyIntArrayClock(defaultVal, capacity)
-    var _maxThreadId = -1
+private class IntArrayClock(capacity: Int = 0) : MutableVectorClock {
+    var clock = emptyIntArrayClock(capacity)
 
     val capacity: Int
         get() = clock.size
@@ -72,25 +66,19 @@ private class IntArrayClock(val defaultVal: Int = -1, capacity: Int = 0) : Mutab
         clock.all { it == -1 }
 
     // NOTE: potentially incorrect
-    override fun maxThreadId(): Int = _maxThreadId
+    override fun maxThreadId(): Int = capacity
 
-    override fun get(tid: ThreadId): Int  {
-        val shiftedTid = tid + 1
-        return if (shiftedTid < capacity) clock[shiftedTid] else -1
-    }
+    override fun get(tid: ThreadId): Int =
+        if (tid < capacity) clock[tid] else -1
 
     override fun set(tid: ThreadId, timestamp: Int) {
-        if (tid > _maxThreadId) _maxThreadId = tid
-        val shiftedTid = tid + 1
-        expandIfNeeded(shiftedTid)
-        clock[shiftedTid] = timestamp
+        expandIfNeeded(tid)
+        clock[tid] = timestamp
     }
 
     override fun increment(tid: ThreadId, n: Int) {
-        if (tid > _maxThreadId) _maxThreadId = tid
-        val shiftedTid = tid + 1
-        expandIfNeeded(shiftedTid)
-        clock[shiftedTid] += n
+        expandIfNeeded(tid)
+        clock[tid] += n
     }
 
     override fun merge(other: VectorClock) {
@@ -102,7 +90,6 @@ private class IntArrayClock(val defaultVal: Int = -1, capacity: Int = 0) : Mutab
         for (i in 0 until capacity) {
             clock[i] = max(clock[i], other[i])
         }
-        _maxThreadId = max(_maxThreadId, other.maxThreadId())
     }
 
     override fun clear() {
@@ -111,23 +98,18 @@ private class IntArrayClock(val defaultVal: Int = -1, capacity: Int = 0) : Mutab
 
     private fun expand(newCapacity: Int) {
         require(newCapacity > capacity)
-        val newClock = emptyIntArrayClock(defaultVal, newCapacity)
+        val newClock = emptyIntArrayClock(newCapacity)
         copyInto(newClock)
         clock = newClock
     }
 
-    private fun expandIfNeeded(shiftedTid: ThreadId) {
-        if (shiftedTid >= capacity) {
-            expand(shiftedTid + 1)
+    private fun expandIfNeeded(tid: ThreadId) {
+        if (tid >= capacity) {
+            expand(tid + 1)
         }
     }
 
-    fun copy() : IntArrayClock {
-        val newClock = IntArrayClock(defaultVal, capacity)
-        copyInto(newClock.clock);
-        newClock._maxThreadId = _maxThreadId
-        return newClock
-    }
+    fun copy() = IntArrayClock(capacity).also { copyInto(it.clock) }
 
     private fun copyInto(other: IntArray) {
         require(other.size >= capacity)
@@ -148,8 +130,8 @@ private class IntArrayClock(val defaultVal: Int = -1, capacity: Int = 0) : Mutab
         clock.joinToString(prefix = "[", separator = ",", postfix = "]")
 
     companion object {
-        private fun emptyIntArrayClock(defaultVal: Int, capacity: Int) =
-            IntArray(capacity) { defaultVal }
+        private fun emptyIntArrayClock(capacity: Int) =
+            IntArray(capacity) { -1 }
     }
 }
 
