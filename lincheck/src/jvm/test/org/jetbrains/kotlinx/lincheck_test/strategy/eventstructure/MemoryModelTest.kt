@@ -23,6 +23,7 @@ package org.jetbrains.kotlinx.lincheck_test.strategy.eventstructure
 import org.jetbrains.kotlinx.lincheck.strategy.managed.FooTimer
 import java.util.concurrent.atomic.*
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.*
+import org.jetbrains.lincheck.datastructures.scenario
 
 import org.junit.Test
 import kotlin.concurrent.thread
@@ -245,5 +246,95 @@ class MemoryModelTest {
             0
         }
         println("Done ${FooTimer}")
+    }
+
+    @Test
+    fun testLastZero10Scenario() {
+        class LastZero {
+            val N = 10
+            val array = IntArray(N+1) { 0 }
+
+            constructor() {}
+
+            fun reader() {
+                var j = N
+                while (array[j--] != 0) {}
+            }
+
+            fun writer(i: Int) {
+                array[i] = array[i-1] + 1
+            }
+        }
+
+        val reader = LastZero::reader
+        val writer = LastZero::writer
+
+        val testScenario = scenario {
+            parallel {
+                thread { actor(reader) }
+                thread { actor(writer, 1) }
+                thread { actor(writer, 2) }
+                thread { actor(writer, 3) }
+                thread { actor(writer, 4) }
+                thread { actor(writer, 5) }
+                thread { actor(writer, 6) }
+                thread { actor(writer, 7) }
+                thread { actor(writer, 8) }
+                thread { actor(writer, 9) }
+                thread { actor(writer, 10) }
+            }
+        }
+
+        litmusTest(LastZero::class.java, testScenario, assertSame(setOf(1), 3328)) {
+            1
+        }
+
+    }
+
+    @Test
+    fun testLastZero15scenario() {
+        class LastZero {
+            val N = 15
+            val array = IntArray(N+1) { 0 }
+
+            constructor() {}
+
+            fun reader() {
+                var j = N
+                while (array[j--] != 0) {}
+            }
+
+            fun writer(i: Int) {
+                array[i] = array[i-1] + 1
+            }
+        }
+
+        val reader = LastZero::reader
+        val writer = LastZero::writer
+
+        val testScenario = scenario {
+            parallel {
+                thread { actor(reader) }
+                thread { actor(writer, 1) }
+                thread { actor(writer, 2) }
+                thread { actor(writer, 3) }
+                thread { actor(writer, 4) }
+                thread { actor(writer, 5) }
+                thread { actor(writer, 6) }
+                thread { actor(writer, 7) }
+                thread { actor(writer, 8) }
+                thread { actor(writer, 9) }
+                thread { actor(writer, 10) }
+                thread { actor(writer, 11) }
+                thread { actor(writer, 12) }
+                thread { actor(writer, 13) }
+                thread { actor(writer, 14) }
+                thread { actor(writer, 15) }
+            }
+        }
+
+        litmusTest(LastZero::class.java, testScenario, assertSame(setOf(1), 147456)) {
+            1
+        }
     }
 }
