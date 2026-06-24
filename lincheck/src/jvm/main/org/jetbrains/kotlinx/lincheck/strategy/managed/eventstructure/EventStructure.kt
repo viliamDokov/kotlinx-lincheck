@@ -893,42 +893,36 @@ internal class EventStructure(
     }
 
     private fun addResponseEvents(requestEvent: AtomicThreadEvent): Pair<AtomicThreadEvent?, List<AtomicThreadEvent>> {
-        FooTimer.measure(3) {
-            require(requestEvent.label.isRequest)
-            FooTimer.measure(5) {
-                tryReplayEvent(requestEvent.threadId)?.let { event ->
-                    val resyncLabel = event.resynchronize(syncAlgebra)
-                    check(event.label.isResponse)
-                    check(event.parent == requestEvent)
-                    check(event.label == resyncLabel)
-                    addEventToCurrentExecution(event)
-                    return event to listOf(event)
-                }
-            }
-            FooTimer.measure(4) {
-                if (isBlockedRequest(requestEvent)) {
-                    val event = getUnblockingResponse(requestEvent)
-                        ?: return (null to listOf())
-                    check(event.label.isResponse)
-                    check(event.request == requestEvent)
-                    addEventToCurrentExecution(event)
-                    return event to listOf(event)
-                }
-                val responseEvents = addSynchronizedEvents(requestEvent)
-                if (responseEvents.isEmpty()) {
-                    blockRequest(requestEvent)
-                    return (null to listOf())
-                }
-                // TODO: use some other strategy to select the next event in the current exploration?
-                // TODO: check consistency of chosen event!
-                val chosenEvent = responseEvents.last().also { event ->
-                    check(event == backtrackingPoints.last().event)
-                    backtrackingPoints.last().visit()
-                    addEventToCurrentExecution(event)
-                }
-                return (chosenEvent to responseEvents)
-            }
+        require(requestEvent.label.isRequest)
+        tryReplayEvent(requestEvent.threadId)?.let { event ->
+            val resyncLabel = event.resynchronize(syncAlgebra)
+            check(event.label.isResponse)
+            check(event.parent == requestEvent)
+            check(event.label == resyncLabel)
+            addEventToCurrentExecution(event)
+            return event to listOf(event)
         }
+        if (isBlockedRequest(requestEvent)) {
+            val event = getUnblockingResponse(requestEvent)
+                ?: return (null to listOf())
+            check(event.label.isResponse)
+            check(event.request == requestEvent)
+            addEventToCurrentExecution(event)
+            return event to listOf(event)
+        }
+        val responseEvents = addSynchronizedEvents(requestEvent)
+        if (responseEvents.isEmpty()) {
+            blockRequest(requestEvent)
+            return (null to listOf())
+        }
+        // TODO: use some other strategy to select the next event in the current exploration?
+        // TODO: check consistency of chosen event!
+        val chosenEvent = responseEvents.last().also { event ->
+            check(event == backtrackingPoints.last().event)
+            backtrackingPoints.last().visit()
+            addEventToCurrentExecution(event)
+        }
+        return (chosenEvent to responseEvents)
     }
 
     /* ************************************************************************* */

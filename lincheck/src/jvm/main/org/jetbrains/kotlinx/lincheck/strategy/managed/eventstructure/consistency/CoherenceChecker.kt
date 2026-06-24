@@ -31,7 +31,6 @@ typealias CoherenceList = List<AtomicThreadEvent>
 class CoherenceChecker : ConsistencyChecker<AtomicThreadEvent, MutableExtendedExecution> {
 
     override fun check(execution: MutableExtendedExecution): Inconsistency? {
-        FooTimer.measure(7) {
             execution.coherenceOrderComputable.apply {
                 initialize()
                 compute()
@@ -41,8 +40,6 @@ class CoherenceChecker : ConsistencyChecker<AtomicThreadEvent, MutableExtendedEx
                 CoherenceViolation()
             else null
         }
-    }
-
 }
 
 data class CoherenceEntry(

@@ -549,9 +549,7 @@ private class EventStructureMemoryTracker(
 
     private fun addReadRequest(iThread: Int, codeLocation: Int, location: MemoryLocation, memoryOrder: MemoryOrdering,
                                readModifyWriteDescriptor: ReadModifyWriteDescriptor? = null, ) {
-        FooTimer.measure(1) {
             eventStructure.addReadRequest(iThread, codeLocation, location, memoryOrder, readModifyWriteDescriptor)
-        }
     }
 
     private fun addReadResponse(iThread: Int): OpaqueValue? {

@@ -1340,7 +1340,6 @@ internal abstract class ManagedStrategy(
         index: Int,
         resultInterceptor: ResultInterceptor?,
     ): Unit =  threadDescriptor.runInsideIgnoredSection {
-        FooTimer.measure(0) {
         if (array == null) return // ignore, `NullPointerException` will be thrown
         updateSnapshotOnArrayElementAccess(array, index)
         if (!shouldTrackArrayAccess(array)) {
@@ -1356,7 +1355,7 @@ internal abstract class ManagedStrategy(
             resultInterceptor?.interceptResult(memoryTracker!!.interceptReadResult(threadId))
         }
         return
-    } }
+    }
 
 
     override fun afterReadField(
