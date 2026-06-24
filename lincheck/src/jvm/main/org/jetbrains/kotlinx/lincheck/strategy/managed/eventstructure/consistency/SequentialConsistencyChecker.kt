@@ -347,7 +347,7 @@ open class ExecutionOrder(ordering: MutableList<AtomicThreadEvent>) : Relation<A
 class ExecutionOrderFast(
     var execution: Execution<AtomicThreadEvent>,
     var enumerator: Enumerator<AtomicThreadEvent>,
-    var causalGraph: CausalGraph,
+    var causalGraph: FooGraph,
     var eco: ExtendedCoherenceOrder,
 ) {
 

@@ -59,7 +59,7 @@ class CoherenceOrder(
     private var consistent: Boolean = true
 
     var enumerator = execution.buildEnumerator()
-    val causalGraph = CausalGraph(execution, enumerator)
+    val causalGraph = FooGraph(execution, enumerator)
 
     val extendedCoherenceOrder = ExtendedCoherenceOrder(execution, enumerator, memoryAccessEventIndex, causalityOrder union writesOrder)
     val executionOrder = ExecutionOrderFast(
@@ -194,7 +194,7 @@ class ExtendedCoherenceOrder(
 ): Computable {
 
 //    private val relations: MutableMap<MemoryLocation, RelationMatrix<AtomicThreadEvent>> = mutableMapOf()
-    val map = CausalGraph(execution, enumerator)
+    val map = FooGraph(execution, enumerator)
 //    val map = CausalGraph(execution, enumerator)
 
     inline fun adjacentForEach(x: AtomicThreadEvent, block: (AtomicThreadEvent) -> Unit) {
