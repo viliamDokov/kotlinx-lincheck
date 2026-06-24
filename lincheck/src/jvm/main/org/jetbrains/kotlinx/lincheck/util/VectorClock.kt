@@ -100,7 +100,7 @@ private class IntArrayClock(val defaultVal: Int = -1, capacity: Int = 0) : Mutab
             expand(other.capacity)
         }
         for (i in 0 until capacity) {
-            clock[i] = max(clock[i], other[i-1])
+            clock[i] = max(clock[i], other[i])
         }
         _maxThreadId = max(_maxThreadId, other.maxThreadId())
     }
