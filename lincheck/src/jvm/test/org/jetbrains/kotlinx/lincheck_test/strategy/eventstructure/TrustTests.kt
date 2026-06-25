@@ -106,33 +106,9 @@ class TrustTests {
         litmusTest(LastZero::class.java, testScenario, assertSame(setOf(Unit), 147456)) { }
     }
 
-
     @Test
-    fun testExpMem() {
-        litmusTest(assertSame(setOf(1), 12)) {
-            val x = AtomicInteger(0);
-            val y = AtomicInteger(0);
-
-            val t1 = thread { x.getAndAdd(1) }
-            val t2 = thread { y.getAndAdd(1) }
-            val t3 = thread { y.getAndAdd(1) }
-            val t4 = thread { y.getAndAdd(1) }
-
-
-            t2.join()
-            t3.join()
-            t4.join()
-
-            x.getAndAdd(1)
-            t1.join()
-
-            1
-        }
-    }
-
-    @Test
-    fun testExpMem2() {
-        litmusTest(assertSame(setOf(1), 20_736)) {
+    fun testExpMem2_4() {
+        litmusTest(assertSame(setOf(1), 3637)) {
             val x = AtomicInteger(0);
 
             val t1 = thread {
@@ -143,10 +119,75 @@ class TrustTests {
                 val r = x.get()
                 x.set(r + 1)
             }
+            val t3 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+            val t4 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+            val t5 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+
+            t2.join()
+            t3.join()
+            t4.join()
+            t5.join()
+
+            val r = x.get()
+            x.set(r + 1)
 
             t1.join()
-            t2.join()
             1
         }
     }
+
+    @Test
+    fun testExpMem2_5() {
+        litmusTest(assertSame(setOf(1), 52906)) {
+            val x = AtomicInteger(0);
+
+            val t1 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+            val t2 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+            val t3 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+            val t4 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+            val t5 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+            val t6 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+
+            t2.join()
+            t3.join()
+            t4.join()
+            t5.join()
+            t6.join()
+
+            val r = x.get()
+            x.set(r + 1)
+
+            t1.join()
+            1
+        }
+    }
+
+
 }

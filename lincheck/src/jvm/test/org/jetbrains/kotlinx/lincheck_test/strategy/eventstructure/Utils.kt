@@ -205,4 +205,4 @@ internal inline fun<reified Outcome> litmusTest(
 internal const val TIMEOUT = 30 * 1000L // 30 sec
 
 // we expect for all litmus tests to have less than 1000 outcomes
-private const val INVOCATIONS = 300_000
+private const val INVOCATIONS = 1_000_000
