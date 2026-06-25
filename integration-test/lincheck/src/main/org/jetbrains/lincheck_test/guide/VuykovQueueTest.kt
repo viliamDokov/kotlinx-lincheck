@@ -10,17 +10,14 @@
 
 package org.jetbrains.lincheck_test.guide
 
-import org.jctools.queues.atomic.MpscLinkedAtomicQueue
 import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.lincheck.datastructures.Operation
 import org.jetbrains.lincheck.datastructures.StressOptions
-import org.jetbrains.lincheck.datastructures.verifier.QuiescentConsistencyVerifier
-import org.jetbrains.lincheck_test.datastructures.VuykovQueue
-import org.jetbrains.lincheck_test.datastructures.VuykovQueueCorrect
+import org.jetbrains.lincheck_test.datastructures.MPSCQueue
 import org.junit.Test
 
 class VuykovQueueTest {
-    private val queue = VuykovQueue<Int>()
+    private val queue = MPSCQueue<Int>()
 
     @Operation()
     public fun offer(x: Int) = queue.offer(x)
@@ -46,6 +43,7 @@ class VuykovQueueTest {
         .actorsBefore(2)
         .actorsAfter(2)
         .actorsPerThread(3)
+        .invocationsPerIteration(1_000)
         .useExperimentalModelChecking()
         .check(this::class)
 }
