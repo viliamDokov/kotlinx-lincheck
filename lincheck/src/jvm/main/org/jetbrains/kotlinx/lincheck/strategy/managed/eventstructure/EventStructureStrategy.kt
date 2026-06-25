@@ -134,6 +134,15 @@ internal class EventStructureStrategy(
             }
         }
 
+        if(inconsistency != null) {
+            println("================================================")
+            println("INCONSISTENT INVOCATION")
+        } else {
+            println("================================================")
+            println("OK INVOCATION")
+        }
+        println("${eventStructure.execution}")
+
         stats.update(result, inconsistency)
         return (result to inconsistency)
     }
@@ -1002,4 +1011,5 @@ private class EventStructureParkingTracker(
     override fun reset() {}
 
 }
+
 
