@@ -67,6 +67,44 @@ class TrustTests {
     }
 
     @Test
+    fun testLastZero13() {
+        class LastZero {
+            val N = 13
+            val buffer = AtomicIntegerArray(N + 1)
+
+            fun reader() {
+                var j = N
+                while (buffer.get(j--) != 0) {}
+            }
+
+            fun writer(i: Int) {
+                buffer.set(i, buffer.get(i-1) + 1)
+            }
+        }
+
+        val testScenario = scenario {
+            parallel {
+                thread { actor(LastZero::reader) }
+                thread { actor(LastZero::writer, 1) }
+                thread { actor(LastZero::writer, 2) }
+                thread { actor(LastZero::writer, 3) }
+                thread { actor(LastZero::writer, 4) }
+                thread { actor(LastZero::writer, 5) }
+                thread { actor(LastZero::writer, 6) }
+                thread { actor(LastZero::writer, 7) }
+                thread { actor(LastZero::writer, 8) }
+                thread { actor(LastZero::writer, 9) }
+                thread { actor(LastZero::writer, 10) }
+                thread { actor(LastZero::writer, 11) }
+                thread { actor(LastZero::writer, 12) }
+                thread { actor(LastZero::writer, 13) }
+            }
+        }
+
+        litmusTest(LastZero::class.java, testScenario, assertSame(setOf(Unit), 32768)) { }
+    }
+
+    @Test
     fun testLastZero15() {
         class LastZero {
             val N = 15
@@ -188,6 +226,53 @@ class TrustTests {
             1
         }
     }
+    @Test
+    fun testExpMem2_6() {
+        litmusTest(assertSame(setOf(1), 916855)) {
+            val x = AtomicInteger(0);
 
+            val t1 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+            val t2 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+            val t3 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+            val t4 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+            val t5 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+            val t6 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+            val t7 = thread {
+                val r = x.get()
+                x.set(r + 1)
+            }
+
+            t2.join()
+            t3.join()
+            t4.join()
+            t5.join()
+            t6.join()
+            t7.join()
+
+            val r = x.get()
+            x.set(r + 1)
+
+            t1.join()
+            1
+        }
+    }
 
 }

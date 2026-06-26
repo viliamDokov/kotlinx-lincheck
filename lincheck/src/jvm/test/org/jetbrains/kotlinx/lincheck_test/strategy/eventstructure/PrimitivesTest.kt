@@ -2223,4 +2223,64 @@ class LocksTest {
             r
         }
     }
+
+
+    class LoadBuffering {
+
+        var x = 0;
+        var y = 0;
+
+        fun threadOne(): Int {
+            val r0 = y; // 1
+            if(r0 == 1) {
+                x = 1
+            }
+            return r0
+        }
+
+        fun threadTwo(): Int {
+            val r1 = x; // 1
+            if(r1 == 1) {
+                y = 1
+            }
+            return r1
+        }
+    }
+
+    class Coherence {
+
+        var x = AtomicInteger(0);
+
+        fun threadOne() {
+            x.setOpaque(1)
+        }
+
+        fun threadTwo() {
+            // No longer allowed
+            val r0 = x.getOpaque() // 1
+            val r1 = x.getOpaque() // 0
+        }
+    }
+
+
+    class MessagePassing {
+
+        var x = AtomicInteger(0);
+        var msg = AtomicInteger(0);
+
+        fun threadOne() {
+            x.setPlain(1)
+            msg.setRelease(1)
+        }
+
+        fun threadTwo() {
+            if(msg.getAcquire() == 1) {
+                // This outcome is no longer allowed
+                x.getPlain() // 0
+            }
+        }
+    }
+
+
+
 }
