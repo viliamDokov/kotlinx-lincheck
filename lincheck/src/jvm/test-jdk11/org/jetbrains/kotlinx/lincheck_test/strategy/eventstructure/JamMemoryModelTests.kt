@@ -43,17 +43,16 @@ class JamMemoryModelTests {
     }
 
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testSBOpaque() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf((0 to 0), (0 to 1), (1 to 1), (1 to 0))
-        litmusTest(assertSame(expectedOutcomes)) {
+        litmusTest(assertSame(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r0 = 0;
             var r1 = 0;
             val t0 = thread {
-                x.setOpaque(1)
+                x.setRelease(1)
                 r0 = y.getOpaque()
             }
             val t1 = thread {
@@ -66,12 +65,10 @@ class JamMemoryModelTests {
         }
     }
 
-    // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun test4SB() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(0,0,0,0))
-        litmusTest(assertSometimes(forbiddenOutcomes)) {
+        litmusTest(assertSometimes(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
