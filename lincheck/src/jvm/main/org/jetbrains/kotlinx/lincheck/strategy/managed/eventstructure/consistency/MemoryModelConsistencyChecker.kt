@@ -45,10 +45,21 @@ class MemoryModelConsistencyChecker(
         if (checkCoherence) CoherenceChecker() else null
 
     override fun check(execution: MutableExtendedExecution): Inconsistency? {
+        check(!execution.executionOrderComputable.computed)
         releaseAcquireChecker?.check(execution)
             ?.let { return it }
         coherenceChecker?.check(execution)
             ?.let { return it }
+        check(execution.executionOrderComputable.computed)
+        val executionOrder = execution.executionOrderComputable.value
+            .ensure { it.isConsistent() }
+
+        // TODO: The current coherence checker is just for RA, we need to seperate the SC coherence from RA coherence
+        if (memoryModel == MemoryModel.SequentialConsistency) {
+            SequentialConsistencyReplayer().ensure {
+                it.replay(executionOrder.ordering) != null
+            }
+        }
         return null
     }
 }
@@ -76,7 +87,24 @@ class IncrementalMemoryModelConsistencyChecker(
 
     override fun doIncrementalCheck(event: AtomicThreadEvent): ConsistencyVerdict {
         check(state is ConsistencyVerdict.Consistent)
+        check(execution.executionOrderComputable.computed)
         resetRelations()
+        val executionOrder = execution.executionOrderComputable.value
+        if (!executionOrder.isConsistentExtension(event)) {
+            val last = executionOrder.ordering.lastOrNull()
+//            println("    Inconsistent LAST: $last, $event")
+
+//            val stackTrace = Exception().stackTraceToString()
+//            if(!stackTrace.contains("resetExploration") && !stackTrace.contains("abortExploration")) {
+//                throw Exception("Really!")
+//            }
+
+            // if we end up in an unknown state, reset the execution order,
+            // so it can be re-computed by the full consistency check
+            execution.executionOrderComputable.reset()
+            return ConsistencyVerdict.Unknown
+        }
+        executionOrder.add(event)
         return ConsistencyVerdict.Consistent
     }
 
@@ -85,11 +113,30 @@ class IncrementalMemoryModelConsistencyChecker(
         lockConsistencyChecker.check(execution)?.let { inconsistency ->
             return ConsistencyVerdict.Inconsistent(inconsistency)
         }
+        // check by trying to replay execution order
+        if (state == ConsistencyVerdict.Consistent) {
+            check(execution.executionOrderComputable.computed)
+            val replayer = SequentialConsistencyReplayer()
+            val executionOrder = execution.executionOrderComputable.value
+            if (replayer.replay(executionOrder.ordering) != null) {
+                // if replay is successful, return "consistent" verdict
+                return ConsistencyVerdict.Consistent
+            }
+        }
+        // if we end up in an unknown state, reset the execution order,
+        // so it can be re-computed by the full consistency check
+        execution.executionOrderComputable.reset()
         return ConsistencyVerdict.Unknown
     }
 
     override fun doReset(): ConsistencyVerdict {
         resetRelations()
+        execution.executionOrderComputable.apply {
+            reset()
+            // set state to `computed`,
+            // so we can push the events into the execution order
+            setComputed()
+        }
         for (event in execution.enumerationOrderSorted()) {
             val verdict = doIncrementalCheck(event)
             if (verdict is ConsistencyVerdict.Unknown) {
