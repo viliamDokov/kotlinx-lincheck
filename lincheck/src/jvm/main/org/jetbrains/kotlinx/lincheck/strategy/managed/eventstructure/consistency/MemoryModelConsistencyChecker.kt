@@ -91,6 +91,14 @@ class IncrementalMemoryModelConsistencyChecker(
         resetRelations()
         val executionOrder = execution.executionOrderComputable.value
         if (!executionOrder.isConsistentExtension(event)) {
+            val last = executionOrder.ordering.lastOrNull()
+            println("    Inconsistent LAST: $last, $event")
+
+            val stackTrace = Exception().stackTraceToString()
+            if(!stackTrace.contains("resetExploration")) {
+                throw Exception("Really!")
+            }
+
             // if we end up in an unknown state, reset the execution order,
             // so it can be re-computed by the full consistency check
             execution.executionOrderComputable.reset()
