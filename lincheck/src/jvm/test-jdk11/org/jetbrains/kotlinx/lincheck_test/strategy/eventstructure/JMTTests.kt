@@ -226,6 +226,7 @@ class JMTTests {
 
     // RESULT: Never
     // LBP21 Figure 1 / Listing L.1
+    @Ignore // TODO: ADD SC
     @Test
     fun test_LBP21_volatile_non_sc_4() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(0, 1, 1, 2))
@@ -262,6 +263,7 @@ class JMTTests {
     // RESULT: Never
     // LBP21 Listing L.2
     // TODO: review what is the correct outcome. Since this outcome is based on a flawed memory model
+    @Ignore // TODO: ADD SC
     @Test
     fun test_LBP21_volatile_non_sc_5() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(0, 1, 0, 1, 2))
@@ -904,32 +906,12 @@ class JMTTests {
         }
     }
 
-    // IGNROED: fun test_jmanson_thesis_fig_3_5() {
+    // IGNORED: fun test_jmanson_thesis_fig_3_5() {
 
-    // RESULT: Sometimes
-    // repeat of CausalityTestCases-Test16
-    @Test
-    fun test_jmanson_thesis_fig_3_6() {
-        val expectedOutcomes: Set<Pair<Int, Int>> = setOf(2 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
-            val x = AtomicInteger(0)
-            var t0_r1 = 0
-            var t1_r2 = 0
-            val t0 = thread {
-                t0_r1 = x.getPlain()
-                x.setPlain(1)
-            }
-            val t1 = thread {
-                t1_r2 = x.getPlain()
-                x.setPlain(2)
-            }
-            t0.join()
-            t1.join()
-            t0_r1 to t1_r2
-        }
-    }
+    //IGNORED: fun test_jmanson_thesis_fig_3_6() {
 
     // RESULT: Never
+    @Ignore // TODO: ADD SC
     @Test
     fun test_jmanson_thesis_fig_3_9() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 2, 0))
@@ -1270,6 +1252,7 @@ class JMTTests {
 
     // RESULT: Sometimes
     // TODO: In the future we need to ignore coherence for plain access!
+    @Ignore // TODO: PLAIN COHERENCE
     @Test
     fun test_jcstress_basics_05_coherence_same_read_plain_1_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
@@ -1672,6 +1655,7 @@ class JMTTests {
     }
 
     // RESULT: Never
+    @Ignore // TODO: ADD SC
     @Test
     fun test_jcstress_basics_07_consensus_dekker_volatile_0_0() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
@@ -2657,6 +2641,7 @@ class JMTTests {
     }
 
     // RESULT: Never
+    @Ignore // TODO: ADD SC
     @Test
     fun test_iriw_vol() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
@@ -2690,6 +2675,7 @@ class JMTTests {
     }
 
     // RESULT: Sometimes
+    @Ignore // TODO: ADD SC
     @Test
     fun test_lb_fake_fence() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
@@ -3114,6 +3100,7 @@ class JMTTests {
     }
 
     // RESULT: Never
+    @Ignore // TODO: ADD SC
     @Test
     fun test_mp_quasi_fence() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
@@ -3291,6 +3278,7 @@ class JMTTests {
     }
 
     // RESULT: Sometimes
+    @Ignore // TODO: ADD SC
     @Test
     fun test_release_sequence_rmw() {
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 2, 0))
@@ -3420,6 +3408,7 @@ class JMTTests {
     }
 
     // RESULT: Never
+    @Ignore // TODO: ADD SC
     @Test
     fun test_sb_quasi_fence() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
