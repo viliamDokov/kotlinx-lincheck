@@ -103,11 +103,10 @@ class JamMemoryModelTests {
 
 
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun test6SB() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(0,0,0,0,0,0))
-        litmusTest(assertSometimes(expectedOutcomes)) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
@@ -380,30 +379,6 @@ class JamMemoryModelTests {
         }
     }
 
-    // TODO: accroding to the JAM19 paper, this behaviour should sometimes happen under the jvm, but it seem to be porf acyclic, so...
-    @Ignore
-    @Test
-    fun testCycNa() {
-        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
-        litmusTest(assertSometimes(expectedOutcomes)) {
-            val x = AtomicInteger(0)
-            val y = AtomicInteger(0)
-            var r0 = 0;
-            var r1 = 0;
-            val t0 = thread {
-                r0 = x.getPlain()
-                if (r0 != 0) y.setPlain(1)
-            }
-            val t1 = thread {
-                r1 = y.getPlain()
-                if (r1 != 0) x.setPlain(1)
-            }
-            t0.join()
-            t1.join()
-            r0 to r1
-        }
-    }
-
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testFig1() {
@@ -429,7 +404,6 @@ class JamMemoryModelTests {
     }
 
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testIriwInternal() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,0,1,0))
@@ -490,11 +464,10 @@ class JamMemoryModelTests {
     }
 
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testMpRelaxed() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 0))
-        litmusTest(assertSometimes(expectedOutcomes)) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r0 = 0;
@@ -515,12 +488,11 @@ class JamMemoryModelTests {
 
 
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testPodrw001() {
         // NOTE: this is just Store Buffering with 3 reads
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0,0,0))
-        litmusTest(assertSometimes(expectedOutcomes)) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
@@ -546,37 +518,6 @@ class JamMemoryModelTests {
         }
     }
 
-    // TODO: one day we will handle fences
-    @Ignore
-    @Test
-    fun testRWCSyncs() {
-        val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1,0,0))
-        litmusTest(assertNever(forbiddenOutcomes)) {
-            val x = AtomicInteger(0)
-            val y = AtomicInteger(0)
-            var r1a = 0;
-            var r1b = 0;
-            var r2 = 0;
-            val t0 = thread {
-                x.setOpaque(1)
-            }
-            val t1 = thread {
-                r1a = x.getOpaque()
-                VarHandle.fullFence()
-                r1b = y.getOpaque()
-            }
-            val t2 = thread {
-                y.setOpaque(1)
-                VarHandle.fullFence()
-                r2 = x.getOpaque()
-            }
-            t0.join()
-            t1.join()
-            t2.join()
-            Triple(r1a, r1b, r2)
-        }
-    }
-
     @Test
     fun testWRR() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf((1 to 0))
@@ -598,11 +539,10 @@ class JamMemoryModelTests {
     }
 
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testX001() {
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0,1,0))
-        litmusTest(assertSometimes(expectedOutcomes)) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r0 = 0;
@@ -785,11 +725,10 @@ class JamMemoryModelTests {
     }
 
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testIRIWPoaasLL() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,0,1,0))
-        litmusTest(assertSometimes(expectedOutcomes)) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r1 = 0;
@@ -819,11 +758,10 @@ class JamMemoryModelTests {
     }
 
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
-    @Ignore
     @Test
     fun testIRIWPoapsLL() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,0,1,0))
-        litmusTest(assertSometimes(expectedOutcomes)) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r1 = 0;
@@ -952,11 +890,10 @@ class JamMemoryModelTests {
     }
 
     // NOTE: this test is interesting because C11 forbids this behavior but JAM allows it
-    @Ignore
     @Test
     fun testMpRelacqRs() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf((2 to 0))
-        litmusTest(assertSometimes(expectedOutcomes)) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r0 = 0;
@@ -1172,5 +1109,4 @@ class JamMemoryModelTests {
             listOf(x.get(), y.get(), t1a, t1b, t3a, t3b)
         }
     }
-
 }

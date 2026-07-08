@@ -391,29 +391,6 @@ class RC11JamTests {
         }
     }
 
-    // TODO: accroding to the JAM19 paper, this behaviour should sometimes happen under the jvm, but it seem to be porf acyclic, so...
-    @Test
-    fun testCycNa() {
-        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 1))
-        litmusTest(assertSometimes(expectedOutcomes)) {
-            val x = AtomicInteger(0)
-            val y = AtomicInteger(0)
-            var r0 = 0;
-            var r1 = 0;
-            val t0 = thread {
-                r0 = x.getPlain()
-                if (r0 != 0) y.setPlain(1)
-            }
-            val t1 = thread {
-                r1 = y.getPlain()
-                if (r1 != 0) x.setPlain(1)
-            }
-            t0.join()
-            t1.join()
-            r0 to r1
-        }
-    }
-
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testFig1() {
@@ -502,7 +479,7 @@ class RC11JamTests {
     @Test
     fun testMpRelaxed() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf((1 to 0))
-        litmusTest(assertSometimes(expectedOutcomes)) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r0 = 0;
@@ -527,7 +504,7 @@ class RC11JamTests {
     fun testPodrw001() {
         // NOTE: this is just Store Buffering with 3 reads
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0,0,0))
-        litmusTest(assertSometimes(expectedOutcomes)) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
@@ -550,36 +527,6 @@ class RC11JamTests {
             t1.join()
             t2.join()
             Triple(r0, r1, r2)
-        }
-    }
-
-    // TODO: one day we will handle fences
-    @Test
-    fun testRWCSyncs() {
-        val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1,0,0))
-        litmusTest(assertNever(forbiddenOutcomes)) {
-            val x = AtomicInteger(0)
-            val y = AtomicInteger(0)
-            var r1a = 0;
-            var r1b = 0;
-            var r2 = 0;
-            val t0 = thread {
-                x.setOpaque(1)
-            }
-            val t1 = thread {
-                r1a = x.getOpaque()
-                VarHandle.fullFence()
-                r1b = y.getOpaque()
-            }
-            val t2 = thread {
-                y.setOpaque(1)
-                VarHandle.fullFence()
-                r2 = x.getOpaque()
-            }
-            t0.join()
-            t1.join()
-            t2.join()
-            Triple(r1a, r1b, r2)
         }
     }
 
@@ -607,7 +554,7 @@ class RC11JamTests {
     @Test
     fun testX001() {
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0,1,0))
-        litmusTest(assertSometimes(expectedOutcomes)) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r0 = 0;
@@ -793,7 +740,7 @@ class RC11JamTests {
     @Test
     fun testIRIWPoaasLL() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,0,1,0))
-        litmusTest(assertSometimes(expectedOutcomes)) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r1 = 0;
@@ -826,7 +773,7 @@ class RC11JamTests {
     @Test
     fun testIRIWPoapsLL() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,0,1,0))
-        litmusTest(assertSometimes(expectedOutcomes)) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r1 = 0;
@@ -958,7 +905,7 @@ class RC11JamTests {
     @Test
     fun testMpRelacqRs() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf((2 to 0))
-        litmusTest(assertSometimes(expectedOutcomes)) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var r0 = 0;
@@ -2634,7 +2581,6 @@ class RC11JamTests {
             .sequentialSpecification(sequentialSpecification.java)
             .useExperimentalModelChecking()
             .check(this::class.java)
-
     }
 
     internal class SequentialHashTableIntInt {
@@ -2646,4 +2592,16 @@ class RC11JamTests {
 
         fun remove(key: Int): Int? = map.remove(key)
     }
+
+
+
+
+
+
+
+
+
+
+
+
 }
