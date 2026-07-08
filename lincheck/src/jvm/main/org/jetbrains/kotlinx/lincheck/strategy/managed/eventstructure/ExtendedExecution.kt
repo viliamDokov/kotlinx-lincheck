@@ -252,7 +252,7 @@ fun MutableExtendedExecution(memoryModel: MemoryModel): MutableExtendedExecution
         get() = consistencyChecker.state.inconsistency
 
     override fun checkConsistency(): Inconsistency? {
-        return consistencyChecker.check()
+        return consistencyChecker.completeCheck()
     }
 
     override fun add(event: AtomicThreadEvent) {

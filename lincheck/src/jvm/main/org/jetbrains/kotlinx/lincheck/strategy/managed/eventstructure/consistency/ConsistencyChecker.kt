@@ -70,7 +70,7 @@ interface IncrementalConsistencyChecker<E : ThreadEvent, X : Execution<E>> {
      *   otherwise returns non-null [Inconsistency] object
      *   representing the reason of inconsistency.
      */
-    fun check(): Inconsistency?
+    fun completeCheck(): Inconsistency?
 
     /**
      * Resets the internal state of the consistency checker to [execution].
@@ -116,7 +116,7 @@ fun ConsistencyVerdict.join(doCheck: () -> ConsistencyVerdict): ConsistencyVerdi
     }
 }
 
-abstract class AbstractIncrementalConsistencyChecker<E : ThreadEvent, X : Execution<E>>(
+abstract class AbstractCachedConsistencyChecker<E : ThreadEvent, X : Execution<E>>(
     execution: X
 ) : IncrementalConsistencyChecker<E, X> {
 
@@ -149,7 +149,7 @@ abstract class AbstractIncrementalConsistencyChecker<E : ThreadEvent, X : Execut
 
     protected abstract fun doIncrementalCheck(event: E): ConsistencyVerdict
 
-    final override fun check(): Inconsistency? {
+    final override fun completeCheck(): Inconsistency? {
         // if the full consistency check was already performed,
         // and there were no new events added, return the cached result
         if (fullCheckCached) {
@@ -191,14 +191,14 @@ abstract class AbstractIncrementalConsistencyChecker<E : ThreadEvent, X : Execut
 abstract class AbstractPartialIncrementalConsistencyChecker<E : ThreadEvent, X : Execution<E>>(
     execution: X,
     val checker: ConsistencyChecker<E, X>,
-) : AbstractIncrementalConsistencyChecker<E, X>(execution) {
+) : AbstractCachedConsistencyChecker<E, X>(execution) {
 
     override fun doCheck(): Inconsistency? {
         // the parent class should guarantee that at this point the state is
         // either "consistent" or "unknown".
         check(state !is ConsistencyVerdict.Inconsistent)
         // do a lightweight check before falling back to full consistency check
-        return when (val verdict = doLightweightCheck()) {
+        return when (val verdict = doFullCheckApproximation()) {
             // if lightweight check returns verdict "consistent",
             // then the whole execution is consistent --- return null
             is ConsistencyVerdict.Consistent -> null
@@ -209,7 +209,7 @@ abstract class AbstractPartialIncrementalConsistencyChecker<E : ThreadEvent, X :
         }
     }
 
-    protected abstract fun doLightweightCheck(): ConsistencyVerdict
+    protected abstract fun doFullCheckApproximation(): ConsistencyVerdict
 
     private fun doFullCheck(): Inconsistency? {
         return checker.check(execution)
@@ -219,7 +219,7 @@ abstract class AbstractPartialIncrementalConsistencyChecker<E : ThreadEvent, X :
 
 abstract class AbstractFullyIncrementalConsistencyChecker<E : ThreadEvent, X : Execution<E>>(
     execution: X
-) : AbstractIncrementalConsistencyChecker<E, X>(execution) {
+) : AbstractCachedConsistencyChecker<E, X>(execution) {
 
     override fun doCheck(): Inconsistency? {
         // if a checker is fully incremental,
@@ -235,7 +235,7 @@ class AggregatedIncrementalConsistencyChecker<E : ThreadEvent, X : Execution<E>>
     execution: X,
     val incrementalConsistencyCheckers: List<IncrementalConsistencyChecker<E, X>>,
     val consistencyCheckers: List<ConsistencyChecker<E, X>>,
-) : AbstractIncrementalConsistencyChecker<E, X>(execution) {
+) : AbstractCachedConsistencyChecker<E, X>(execution) {
 
     override fun doIncrementalCheck(event: E): ConsistencyVerdict {
         var verdict: ConsistencyVerdict = ConsistencyVerdict.Consistent
@@ -247,7 +247,7 @@ class AggregatedIncrementalConsistencyChecker<E : ThreadEvent, X : Execution<E>>
 
     override fun doCheck(): Inconsistency? {
         for (incrementalChecker in incrementalConsistencyCheckers) {
-            incrementalChecker.check()?.let { return it }
+            incrementalChecker.completeCheck()?.let { return it }
         }
         for (checker in consistencyCheckers) {
             checker.check(execution)?.let { return it }

@@ -100,7 +100,7 @@ class IncrementalMemoryModelConsistencyChecker(
         return ConsistencyVerdict.Consistent
     }
 
-    override fun doLightweightCheck(): ConsistencyVerdict {
+    override fun doFullCheckApproximation(): ConsistencyVerdict {
         // TODO: extract into separate checker
         lockConsistencyChecker.check(execution)?.let { inconsistency ->
             return ConsistencyVerdict.Inconsistent(inconsistency)
