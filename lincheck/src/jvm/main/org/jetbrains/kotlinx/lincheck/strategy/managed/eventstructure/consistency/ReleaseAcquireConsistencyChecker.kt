@@ -127,6 +127,18 @@ class WritesBeforeOrder(
         }
     }
 
+    private fun RelationMatrix<AtomicThreadEvent>.addWREdges(location: MemoryLocation) {
+        val relation = this
+        for (read in memoryAccessEventIndex.getReadResponses(location)) {
+            for (write in memoryAccessEventIndex.getWrites(location)) {
+                // TODO: change this check from `(w,r) \in hb` to `(w,r) \in rf^?;hb`
+                if (happensBefore(read, write) && write != read.readsFrom) {
+                    relation[write, read.readsFrom] = true
+                }
+            }
+        }
+    }
+
     private fun RelationMatrix<AtomicThreadEvent>.computeReadModifyWriteChainsClosure(location: MemoryLocation) {
         this.equivalenceClosure { event ->
             rmwChainsStorage[location, event]?.chain
