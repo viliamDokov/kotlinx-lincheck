@@ -42,6 +42,7 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
 
     private val volatileEventEnumerator = MutableEventEnumerator()
     val writesBeforeTracker = WritesBeforeTrackerReleationMatrix()
+    val exclusiveWrites = mutableListOf<AtomicThreadEvent>()
 
 
     val events = mutableListOf<AtomicThreadEvent>()
@@ -53,7 +54,9 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
         // If not write or read response, then we skip
         if (!(label.isWrite || label.isResponse)) return
         val location = label.location
+
         if(label.memoryOrdering == MemoryOrdering.VOLATILE) trackVolaitleEvent(event)
+        if(label.isExclusive) trackRMWEvent(event)
 
         writesBeforeTracker.addEvent(event)
 
@@ -71,11 +74,18 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
         }
     }
 
+    private fun trackRMWEvent(event: AtomicThreadEvent) {
+        // We track only the exclusive write when checking
+        if(event.label !is WriteAccessLabel) return
+        exclusiveWrites.add(event)
+    }
+
     private fun trackVolaitleEvent(event: AtomicThreadEvent) { volatileEventEnumerator.add(event) }
 
     override fun onReset(execution: MutableExtendedExecution) {
         writesBeforeTracker.clear()
         volatileEventEnumerator.clear()
+        exclusiveWrites.clear()
         execution.enumerationOrderSorted().forEach { onAdd(it) }
     }
 
@@ -83,16 +93,33 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
         val cycle = writesBeforeTracker.hasCycle()
         if(cycle != null) return CoherenceViolation() // TODO: actually add a nicer class
 
-        if(memoryModel != MemoryModel.ReleaseAcquire) return checkSequentialConsistency()
+        if(memoryModel != MemoryModel.ReleaseAcquire) return doCheckWithTotalOrders()
 
         return null
     }
 
-    private fun checkSequentialConsistency() : Inconsistency? {
+    private fun doCheckWithTotalOrders() : Inconsistency? {
         // No need to compute the graph if there are no volatile events
         if (volatileEventEnumerator.list.isEmpty()) return null
         writesBeforeTracker.forEachCoherenceOrder { coherenceOrder ->
-            val graph = SCBRelation(coherenceOrder).toGraph(volatileEventEnumerator.list, volatileEventEnumerator)
+            // Check RMWs
+            for (write in exclusiveWrites) {
+                val writeLabel = write.label as WriteAccessLabel
+                // Get the read event to the rmw
+                val read = write.parent!!
+                val readLabel = read.label as ReadAccessLabel
+                check(readLabel.location == writeLabel.location)
+                check(readLabel.isResponse)
+                check(readLabel.isExclusive)
+
+                val readsFromWrite = read.readsFrom
+                // If the exclusive write is not directly after the write that the read reads from,
+                // then we this order is bad
+                if(!coherenceOrder.isDirectlyAfter(readsFromWrite, write)) return@forEachCoherenceOrder
+            }
+
+            // Check sequential Consistency
+            val graph = SCBSimpleRelation(coherenceOrder).toGraph(volatileEventEnumerator.list, volatileEventEnumerator)
             val sorting = topologicalSorting(graph)
             if(sorting != null) return null
         }
@@ -133,8 +160,10 @@ class SCBSimpleRelation(val coherenceOrder: Relation<AtomicThreadEvent>) : Relat
     ): Boolean {
         val writeX = getWrite(x)
         val writeY = getWrite(y)
+        // For the CO and Rb part we actually need to make sure that the location is the same
+        val location = getLocationForSameLocationAccesses(x, y)
         // CO and RB both at once
-        if( !(x != writeX && writeY != y) && coherenceOrder(writeX, writeY)) return true // eco
+        if(location != null && !(x != writeX && writeY != y) && coherenceOrder(writeX, writeY)) return true // eco
         if (happensBeforeOrder(x, y)) return true // hb
         return false
     }
@@ -185,7 +214,7 @@ class WritesBeforeTrackerReleationMatrix() : WritesBeforeTracker {
         maximalEvents.values.forEach { it.clear() }
     }
 
-    inline fun forEachCoherenceOrder(block: (Relation<AtomicThreadEvent>) -> Unit) {
+    inline fun forEachCoherenceOrder(block: (CoherenceRelation) -> Unit) {
         val sortings = writesBeforeGraphs.values.filter{ !it.isSingleton() }.map { topologicalSortings(it) }.toList()
         if(sortings.isEmpty()) {
             return block(CoherenceRelation(listOf()))
@@ -335,6 +364,13 @@ class CoherenceRelation : Relation<AtomicThreadEvent> {
         val orderX = map[x]!!
         val orderY = map[y]!!
         return orderX < orderY
+    }
+
+    fun isDirectlyAfter(x: AtomicThreadEvent, y: AtomicThreadEvent) : Boolean {
+        val location = getLocationForSameLocationAccesses(x, y) ?: return false
+        val orderX = map[x]!!
+        val orderY = map[y]!!
+        return orderX + 1 == orderY
     }
 }
 
