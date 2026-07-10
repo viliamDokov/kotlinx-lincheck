@@ -111,6 +111,7 @@ internal fun<Outcome> litmusTest(
         val strategy = createStrategy(testClass, memoryModel, testScenario)
         val failure = strategy.runIteration(INVOCATIONS, verifier)
         assert(failure == null) { failure.toString() }
+        println("Stats: ${strategy.stats}")
         outcomeVerifier.verify(outcomes)
     }
 }

@@ -27,6 +27,7 @@ import org.jetbrains.lincheck.util.collections.*
 
 typealias EventID = Int
 
+// TODO: Maybe include the event label as the type of the event here. It would save a lot of pain when casting.
 interface Event : Comparable<Event> {
     /**
      * Event's ID.

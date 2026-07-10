@@ -43,12 +43,15 @@ import org.junit.Ignore
 import org.junit.Rule
 import org.junit.rules.TestName
 import java.lang.invoke.VarHandle
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.ConcurrentSkipListMap
 import java.util.concurrent.locks.LockSupport.park
 import java.util.concurrent.locks.LockSupport.unpark
 import kotlin.concurrent.thread
 import kotlin.reflect.KClass
+import kotlin.reflect.KFunction
 import kotlin.reflect.jvm.javaMethod
 
 class RC11JamTests {
@@ -2593,15 +2596,68 @@ class RC11JamTests {
         fun remove(key: Int): Int? = map.remove(key)
     }
 
+    @Test
+    fun testConcurrentHashMap() {
+        val executionScenario = scenario {
+            parallel {
+                thread {
+                    actor(ConcurrentHashMap<Int, Int>::get, 4)
+                    actor(ConcurrentHashMap<Int, Int>::put, 3, 4)
+                }
+                thread {
+                    actor(ConcurrentHashMap<Int, Int>::put, 3,4)
+                    actor(ConcurrentHashMap<Int, Int>::get, 2)
+                }
+            }
+        }
+        litmusTest(ConcurrentHashMap::class.java, executionScenario, assertSame(setOf(1), UNKNOWN)) { results -> 1 }
+    }
 
+    @Test
+    fun testConcurrentLinkedDeque() {
+        val executionScenario = scenario {
+            parallel {
+                thread {
+                    actor(ConcurrentLinkedQueue<Int>::offer, 0)
+                }
+                thread {
+                    actor(ConcurrentLinkedQueue<Int>::offer, 1)
+                }
+            }
+            post {
+                actor(ConcurrentLinkedQueue<Int>::poll)
+                actor(ConcurrentLinkedQueue<Int>::poll)
+            }
+        }
+        val outcomes = setOf(1 to 0, 0 to 1)
+        litmusTest(ConcurrentLinkedQueue::class.java, executionScenario, assertSame(outcomes, UNKNOWN)) { results ->
+            val r1 = getValue<Int?>(results.postResults[0]!!)
+            val r2 = getValue<Int?>(results.postResults[1]!!)
+            r1 to r2
+        }
+    }
 
-
-
-
-
-
-
-
-
-
+    @Test
+    fun testConcurrentSkipListMap() {
+        val put = ConcurrentSkipListMap<Int, Int>::put;
+        val remove: (ConcurrentSkipListMap<Int, Int>, Int) -> Int? = ConcurrentSkipListMap<Int, Int>::remove
+        val executionScenario = scenario {
+            parallel {
+                thread {
+                    actor(put, 0, 0)
+                    actor(ConcurrentSkipListMap<Int, Int>::get, 0)
+                }
+                thread {
+                    actor(remove as KFunction<*>, 1)
+                }
+            }
+        }
+        val outcomes = setOf(Triple(null, null, 0), Triple(null, null, null))
+        litmusTest(ConcurrentSkipListMap::class.java, executionScenario, assertSame(outcomes, UNKNOWN)) { results ->
+            val r1 = getValue<Int?>(results.parallelResults[0][0]!!)
+            val r2 = getValue<Int?>(results.parallelResults[1][0]!!)
+            val r3 = getValue<Int?>(results.parallelResults[0][1]!!)
+            Triple(r1, r2, r3)
+        }
+    }
 }
