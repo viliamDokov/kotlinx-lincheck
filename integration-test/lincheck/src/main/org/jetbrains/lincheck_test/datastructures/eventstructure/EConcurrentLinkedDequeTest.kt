@@ -10,6 +10,7 @@
 
 package org.jetbrains.lincheck_test.datastructures.eventstructure
 
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
 import org.jetbrains.lincheck.datastructures.*
 import java.util.concurrent.*
 import org.junit.*
@@ -38,7 +39,8 @@ class EConcurrentLinkedDequeTest {
     @Test(expected = AssertionError::class)
     fun eventStructureModelCheckingTest() = ModelCheckingOptions()
         .useExperimentalModelChecking()
+        .memoryModel(MemoryModel.JAM21)
         .iterations(25)
-        .invocationsPerIteration(100)
+        .invocationsPerIteration(200)
         .check(this::class)
 }

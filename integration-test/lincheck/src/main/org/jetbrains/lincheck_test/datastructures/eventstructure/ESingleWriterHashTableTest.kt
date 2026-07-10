@@ -10,6 +10,7 @@
 
 package org.jetbrains.lincheck_test.datastructures.eventstructure
 
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
 import org.jetbrains.kotlinx.lincheck_test.TIMEOUT
 import org.jetbrains.lincheck.datastructures.*
 import org.jetbrains.lincheck_test.datastructures.SingleWriterHashTable
@@ -39,6 +40,7 @@ class SingleWriterHashTableTest() {
     @Test(timeout = TIMEOUT, expected = AssertionError::class)
     fun eventStructureModelCheckingTest() = ModelCheckingOptions()
         .useExperimentalModelChecking()
+        .memoryModel(MemoryModel.JAM21)
         .iterations(scenarios)
         .invocationsPerIteration(10_000)
         .actorsBefore(actorsBefore)

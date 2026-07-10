@@ -15,6 +15,7 @@ import org.junit.Test
 
 import org.jetbrains.kotlinx.lincheck.*
 import org.jetbrains.kotlinx.lincheck.strategy.*
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
 import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.lincheck.datastructures.StressOptions
 import org.jetbrains.kotlinx.lincheck_test.util.*
@@ -46,6 +47,7 @@ abstract class AbstractEventStructureTest(
     fun testWithEventStructureStrategy() : Unit = ModelCheckingOptions().run {
         invocationsPerIteration(1_000)
         useExperimentalModelChecking()
+        memoryModel(MemoryModel.JAM21)
         commonConfiguration()
         runInternalTest()
     }

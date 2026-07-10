@@ -10,6 +10,7 @@
 
 package org.jetbrains.lincheck_test.datastructures.eventstructure
 
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
 import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.lincheck.datastructures.Operation
 import org.jetbrains.lincheck.datastructures.StressOptions
@@ -30,6 +31,7 @@ class ConcurrentLinkedQueueTest {
     fun modelCheckingTest() = ModelCheckingOptions()
         .useExperimentalModelChecking()
         .iterations(10)
+        .memoryModel(MemoryModel.JAM21)
         .invocationsPerIteration(100)
         .sequentialSpecification(SequentialQueue::class.java)
         .check(this::class)
