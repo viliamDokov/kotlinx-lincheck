@@ -48,7 +48,7 @@ class JMTTests {
     @Test
     fun test_SA08_irrelevant_read_introduction_source() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
@@ -84,7 +84,7 @@ class JMTTests {
     @Test
     fun test_SA08_redundant_read_after_read_elimination_source() {
         val forbiddenOutcomes: Set<Int> = setOf(1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r2 = 0
@@ -114,7 +114,7 @@ class JMTTests {
     @Test
     fun test_Sevcik_2008_Tester_source() {
         val forbiddenOutcomes: Set<Int> = setOf(1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
@@ -145,92 +145,16 @@ class JMTTests {
 
     // ==================== jam ====================
 
-    // IGNORED_RESULT: Never
-    // forbidden per LBP21 Figure 8
-    // TODO: review what is the correct outcome. Since this outcome is based on a flawed memory model
-    @Ignore
-    @Test
-    fun test_LBP21_register_promotion_for_volatile_source() {
-        val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(1, 2, 1, 2))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
-            val x = AtomicInteger(0)
-            val y = AtomicInteger(0)
-            val z = AtomicInteger(0)
-            var t0_r1 = 0
-            var t0_r2 = 0
-            var t1_r3 = 0
-            var t1_r4 = 0
-            val t0 = thread {
-                t0_r1 = x.getOpaque()
-                t0_r2 = x.getOpaque()
-            }
-            val t1 = thread {
-                t1_r3 = y.getOpaque()
-                t1_r4 = y.getOpaque()
-            }
-            val t2 = thread {
-                x.setOpaque(2)
-                z.set(1)
-                y.set(1)
-            }
-            val t3 = thread {
-                y.set(2)
-                x.set(1)
-            }
-            t0.join()
-            t1.join()
-            t2.join()
-            t3.join()
-            listOf(t0_r1, t0_r2, t1_r3, t1_r4)
-        }
-    }
+    // Ignored: test_LBP21_register_promotion_for_volatile_source
 
-    // IGNORED_RESULT: Sometimes
-    // allowed per LBP21 Figure 9
-    // TODO: review what is the correct outcome. Since this outcome is based on a flawed memory model
-    @Ignore
-    @Test
-    fun test_LBP21_register_promotion_for_volatile_target() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 2, 1, 2))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
-            val x = AtomicInteger(0)
-            val y = AtomicInteger(0)
-            var t0_r1 = 0
-            var t0_r2 = 0
-            var t1_r3 = 0
-            var t1_r4 = 0
-            val t0 = thread {
-                t0_r1 = x.getOpaque()
-                t0_r2 = x.getOpaque()
-            }
-            val t1 = thread {
-                t1_r3 = y.getOpaque()
-                t1_r4 = y.getOpaque()
-            }
-            val t2 = thread {
-                x.setOpaque(2)
-                var z = 1
-                y.set(1)
-            }
-            val t3 = thread {
-                y.set(2)
-                x.set(1)
-            }
-            t0.join()
-            t1.join()
-            t2.join()
-            t3.join()
-            listOf(t0_r1, t0_r2, t1_r3, t1_r4)
-        }
-    }
+    // Ignored: test_LBP21_register_promotion_for_volatile_target() {
 
     // RESULT: Never
     // LBP21 Figure 1 / Listing L.1
-    @Ignore // TODO: ADD SC
     @Test
     fun test_LBP21_volatile_non_sc_4() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(0, 1, 1, 2))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -263,11 +187,10 @@ class JMTTests {
     // RESULT: Never
     // LBP21 Listing L.2
     // TODO: review what is the correct outcome. Since this outcome is based on a flawed memory model
-    @Ignore // TODO: ADD SC
     @Test
     fun test_LBP21_volatile_non_sc_5() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(0, 1, 0, 1, 2))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
@@ -304,269 +227,17 @@ class JMTTests {
         }
     }
 
-    // IGNORED_RESULT: Never
-    // forbidden per LBP21 Figure 11
-    // TODO: review what is the correct outcome. Since this outcome is based on a flawed memory model
-    @Ignore
-    @Test
-    fun test_LBP21_vread_vread_merging_source() {
-        val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(1, 2, 1, 2, 2, 2))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
-            val x = AtomicInteger(0)
-            val y = AtomicInteger(0)
-            var t0_r1 = 0
-            var t0_r2 = 0
-            var t1_r3 = 0
-            var t1_r4 = 0
-            var t3_r5 = 0
-            var t3_r6 = 0
-            val t0 = thread {
-                t0_r1 = x.getOpaque()
-                t0_r2 = x.getOpaque()
-            }
-            val t1 = thread {
-                t1_r3 = y.getOpaque()
-                t1_r4 = y.getOpaque()
-            }
-            val t2 = thread {
-                x.setOpaque(2)
-            }
-            val t3 = thread {
-                t3_r5 = x.get()
-                t3_r6 = x.get()
-                y.setRelease(1)
-            }
-            val t4 = thread {
-                y.set(2)
-                x.set(1)
-            }
-            t0.join()
-            t1.join()
-            t2.join()
-            t3.join()
-            t4.join()
-            listOf(t0_r1, t0_r2, t1_r3, t1_r4, t3_r5, t3_r6)
-        }
-    }
+    // IGNORED: test_LBP21_vread_vread_merging_source() {
 
-    // IGNORED_RESULT: Sometimes
-    // allowed per LBP21 Figure 12
-    // TODO: review what is the correct outcome. Since this outcome is based on a flawed memory model
-    @Ignore
-    @Test
-    fun test_LBP21_vread_vread_merging_target() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 2, 1, 2, 2, 2))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
-            val x = AtomicInteger(0)
-            val y = AtomicInteger(0)
-            var t0_r1 = 0
-            var t0_r2 = 0
-            var t1_r3 = 0
-            var t1_r4 = 0
-            var t3_r5 = 0
-            var t3_r6 = 0
-            val t0 = thread {
-                t0_r1 = x.getOpaque()
-                t0_r2 = x.getOpaque()
-            }
-            val t1 = thread {
-                t1_r3 = y.getOpaque()
-                t1_r4 = y.getOpaque()
-            }
-            val t2 = thread {
-                x.setOpaque(2)
-            }
-            val t3 = thread {
-                t3_r5 = x.get()
-                t3_r6 = t3_r5
-                y.setRelease(1)
-            }
-            val t4 = thread {
-                y.set(2)
-                x.set(1)
-            }
-            t0.join()
-            t1.join()
-            t2.join()
-            t3.join()
-            t4.join()
-            listOf(t0_r1, t0_r2, t1_r3, t1_r4, t3_r5, t3_r6)
-        }
-    }
+    // IGNORED: test_LBP21_vread_vread_merging_target() {
 
-    // IGNORED_RESULT: Never
-    // forbidden per LBP21 Figure 13
-    // TODO: review what is the correct outcome. Since this outcome is based on a flawed memory model
-    @Ignore
-    @Test
-    fun test_LBP21_vwrite_vwrite_merging_source() {
-        val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(2, 3, 1, 2))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
-            val x = AtomicInteger(0)
-            val y = AtomicInteger(0)
-            val z = AtomicInteger(0)
-            var t0_r1 = 0
-            var t0_r2 = 0
-            var t1_r3 = 0
-            var t1_r4 = 0
-            val t0 = thread {
-                t0_r1 = x.getOpaque()
-                t0_r2 = x.getOpaque()
-            }
-            val t1 = thread {
-                t1_r3 = y.getOpaque()
-                t1_r4 = y.getOpaque()
-            }
-            val t2 = thread {
-                y.setOpaque(2)
-                x.set(1)
-                x.set(2)
-            }
-            val t3 = thread {
-                x.set(3)
-                y.set(1)
-            }
-            t0.join()
-            t1.join()
-            t2.join()
-            t3.join()
-            listOf(t0_r1, t0_r2, t1_r3, t1_r4)
-        }
-    }
+    // IGNORED: test_LBP21_vwrite_vwrite_merging_source() {
 
-    // IGNORED_RESULT: Sometimes
-    // allowed per LBP21 Figure 14
-    // TODO: review what is the correct outcome. Since this outcome is based on a flawed memory model
-    @Ignore
-    @Test
-    fun test_LBP21_vwrite_vwrite_merging_target() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(2, 3, 1, 2))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
-            val x = AtomicInteger(0)
-            val y = AtomicInteger(0)
-            val z = AtomicInteger(0)
-            var t0_r1 = 0
-            var t0_r2 = 0
-            var t1_r3 = 0
-            var t1_r4 = 0
-            val t0 = thread {
-                t0_r1 = x.getOpaque()
-                t0_r2 = x.getOpaque()
-            }
-            val t1 = thread {
-                t1_r3 = y.getOpaque()
-                t1_r4 = y.getOpaque()
-            }
-            val t2 = thread {
-                y.setOpaque(2)
-                x.set(2)
-            }
-            val t3 = thread {
-                x.set(3)
-                y.set(1)
-            }
-            t0.join()
-            t1.join()
-            t2.join()
-            t3.join()
-            listOf(t0_r1, t0_r2, t1_r3, t1_r4)
-        }
-    }
+    // IGNORED: test_LBP21_vwrite_vwrite_merging_target() {
 
-    // IGNORED_RESULT: Never
-    // forbidden per LBP21 Figure 15
-    // TODO: review what is the correct outcome. Since this outcome is based on a flawed memory model
-    @Ignore
-    @Test
-    fun test_LBP21_write_aread_merging_source() {
-        val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(1, 2, 1, 2, 0, 1, 2))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
-            val x = AtomicInteger(0)
-            val y = AtomicInteger(0)
-            val z = AtomicInteger(0)
-            var t0_r1 = 0
-            var t0_r2 = 0
-            var t1_r3 = 0
-            var t1_r4 = 0
-            var t3_r5 = 0
-            var t3_r6 = 0
-            var t3_r7 = 0
-            val t0 = thread {
-                t0_r1 = x.getOpaque()
-                t0_r2 = x.getOpaque()
-            }
-            val t1 = thread {
-                t1_r3 = y.getOpaque()
-                t1_r4 = y.getOpaque()
-            }
-            val t2 = thread {
-                y.setOpaque(1)
-            }
-            val t3 = thread {
-                x.setRelease(2)
-                t3_r7 = x.getAcquire()
-                t3_r5 = z.get()
-                t3_r6 = y.get()
-            }
-            val t4 = thread {
-                y.set(2)
-                x.set(1)
-            }
-            t0.join()
-            t1.join()
-            t2.join()
-            t3.join()
-            t4.join()
-            listOf(t0_r1, t0_r2, t1_r3, t1_r4, t3_r5, t3_r6, t3_r7)
-        }
-    }
+    // IGNORED: test_LBP21_write_aread_merging_source() {
 
-    // IGNORED_RESULT: Sometimes
-    // allowed per LBP21 Figure 16
-    // TODO: review what is the correct outcome. Since this outcome is based on a flawed memory model
-    @Ignore
-    @Test
-    fun test_LBP21_write_aread_merging_target() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 2, 1, 2, 0, 1))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
-            val x = AtomicInteger(0)
-            val y = AtomicInteger(0)
-            val z = AtomicInteger(0)
-            var t0_r1 = 0
-            var t0_r2 = 0
-            var t1_r3 = 0
-            var t1_r4 = 0
-            var t3_r5 = 0
-            var t3_r6 = 0
-            val t0 = thread {
-                t0_r1 = x.getOpaque()
-                t0_r2 = x.getOpaque()
-            }
-            val t1 = thread {
-                t1_r3 = y.getOpaque()
-                t1_r4 = y.getOpaque()
-            }
-            val t2 = thread {
-                y.setOpaque(1)
-            }
-            val t3 = thread {
-                x.setRelease(2)
-                var r7 = 2
-                t3_r5 = z.get()
-                t3_r6 = y.get()
-            }
-            val t4 = thread {
-                y.set(2)
-                x.set(1)
-            }
-            t0.join()
-            t1.join()
-            t2.join()
-            t3.join()
-            t4.join()
-            listOf(t0_r1, t0_r2, t1_r3, t1_r4, t3_r5, t3_r6)
-        }
-    }
+    // IGNORED: test_LBP21_write_aread_merging_target() {
 
     // ==================== causality-test-cases ====================
 
@@ -580,7 +251,7 @@ class JMTTests {
     @Test
     fun test_causality_test_case_04() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -603,7 +274,7 @@ class JMTTests {
     @Test
     fun test_causality_test_case_05() {
         val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 1, 0))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
@@ -645,7 +316,7 @@ class JMTTests {
     @Test
     fun test_causality_test_case_10() {
         val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 1, 0))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
@@ -687,7 +358,7 @@ class JMTTests {
     @Test
     fun test_causality_test_case_13() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -718,7 +389,7 @@ class JMTTests {
     @Test
     fun test_causality_test_case_17() {
         val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(42, 42, 42))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -748,7 +419,7 @@ class JMTTests {
     @Test
     fun test_causality_test_case_18() {
         val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(42, 42, 42))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -778,7 +449,7 @@ class JMTTests {
     @Test
     fun test_jmanson_thesis_fig_1_2() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(42 to 42)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -805,7 +476,7 @@ class JMTTests {
     @Test
     fun test_jmanson_thesis_fig_2_2() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(2 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r2 = 0
@@ -828,7 +499,7 @@ class JMTTests {
     @Test
     fun test_jmanson_thesis_fig_2_5() {
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 0, 1))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             val b = AtomicInteger(0)
             var t1_r1 = 0
@@ -856,7 +527,7 @@ class JMTTests {
         // Since x,y start at 0 and writes are conditional on non-zero reads,
         // the only possible outcome is (0,0). We forbid any (nonzero /\ nonzero).
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -885,7 +556,7 @@ class JMTTests {
     @Test
     fun test_jmanson_thesis_fig_3_3b() {
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(2, 2, 2))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             val b = AtomicInteger(0)
             var t0_r1 = 0
@@ -911,11 +582,10 @@ class JMTTests {
     //IGNORED: fun test_jmanson_thesis_fig_3_6() {
 
     // RESULT: Never
-    @Ignore // TODO: ADD SC
     @Test
     fun test_jmanson_thesis_fig_3_9() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 2, 0))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val v1 = AtomicInteger(0)
             val v2 = AtomicInteger(0)
             var t2_r1 = 0
@@ -948,7 +618,7 @@ class JMTTests {
     @Test
     fun test_jmanson_thesis_fig_3_10() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val v = AtomicInteger(0)
@@ -978,7 +648,7 @@ class JMTTests {
     @Test
     fun test_jmanson_thesis_fig_4_11() {
         val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 1, 1))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -1012,7 +682,7 @@ class JMTTests {
     @Test
     fun test_jmanson_thesis_fig_4_5() {
         val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0, 42, 42))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
@@ -1047,7 +717,7 @@ class JMTTests {
     @Test
     fun test_jmanson_thesis_fig_4_6() {
         val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0, 42, 42))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
@@ -1093,7 +763,7 @@ class JMTTests {
         // aoobe is only set to 1 when r1 >= 2, so aoobe!=1 is implied by r1==1.
         // We approximate the forbidden outcome as (1, 1, 1) for (r1, r2, r3).
         val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 1, 1))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val a0 = AtomicInteger(1)
@@ -1129,7 +799,7 @@ class JMTTests {
     @Test
     fun test_jmanson_thesis_fig_4_9() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 1))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             val b = AtomicInteger(0)
             val c = AtomicInteger(0)
@@ -1185,7 +855,7 @@ class JMTTests {
     @Test
     fun test_jcstress_advanced_15_volatiles_are_not_fences() {
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 0, 0))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val b = AtomicInteger(0)
@@ -1212,7 +882,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_05_coherence_same_read_plain_0_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             var t1_r1 = 0
             var t1_r2 = 0
@@ -1233,7 +903,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_05_coherence_same_read_plain_0_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             var t1_r1 = 0
             var t1_r2 = 0
@@ -1256,7 +926,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_05_coherence_same_read_plain_1_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             var t1_r1 = 0
             var t1_r2 = 0
@@ -1277,7 +947,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_05_coherence_same_read_plain_1_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             var t1_r1 = 0
             var t1_r2 = 0
@@ -1298,7 +968,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_05_coherence_same_read_volatile_0_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             var t1_r1 = 0
             var t1_r2 = 0
@@ -1319,7 +989,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_05_coherence_same_read_volatile_0_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             var t1_r1 = 0
             var t1_r2 = 0
@@ -1340,7 +1010,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_05_coherence_same_read_volatile_1_0() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             var t1_r1 = 0
             var t1_r2 = 0
@@ -1361,7 +1031,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_05_coherence_same_read_volatile_1_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             var t1_r1 = 0
             var t1_r2 = 0
@@ -1382,7 +1052,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_plain_0_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -1405,7 +1075,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_plain_0_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -1428,7 +1098,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_plain_1_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -1451,7 +1121,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_plain_1_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -1474,7 +1144,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_volatile_0_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -1497,7 +1167,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_volatile_0_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -1520,7 +1190,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_volatile_1_0() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -1543,7 +1213,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_volatile_1_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -1566,7 +1236,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_plain_0_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -1589,7 +1259,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_plain_0_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -1612,7 +1282,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_plain_1_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -1635,7 +1305,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_plain_1_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -1655,11 +1325,10 @@ class JMTTests {
     }
 
     // RESULT: Never
-    @Ignore // TODO: ADD SC
     @Test
     fun test_jcstress_basics_07_consensus_dekker_volatile_0_0() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -1682,7 +1351,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_volatile_0_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -1705,7 +1374,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_volatile_1_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -1728,7 +1397,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_volatile_1_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -1751,7 +1420,7 @@ class JMTTests {
     @Test
     fun test_jcstress_rmw_09_gas_effects_1_cts_cts() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -1781,7 +1450,7 @@ class JMTTests {
     @Test
     fun test_jcstress_UnobservedVolatileBarrierTest() {
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 0, 0))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val v = AtomicInteger(0)
@@ -1812,7 +1481,7 @@ class JMTTests {
     @Test
     fun test_jcstress_advanced_02_multi_copy_atomic_fenced() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t2_r1 = 0
@@ -1853,7 +1522,7 @@ class JMTTests {
     @Test
     fun test_jcstress_advanced_02_multi_copy_atomic_fully_fenced() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t2_r1 = 0
@@ -1894,7 +1563,7 @@ class JMTTests {
     @Test
     fun test_jcstress_advanced_02_multi_copy_atomic_opaque() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t2_r1 = 0
@@ -1927,7 +1596,7 @@ class JMTTests {
     @Test
     fun test_jcstress_advanced_03_non_mca_coherence_1221() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(1, 2, 2, 1))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             var t2_r1 = 0
             var t2_r2 = 0
@@ -1959,7 +1628,7 @@ class JMTTests {
     @Test
     fun test_jcstress_advanced_03_non_mca_coherence_2112() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(2, 1, 1, 2))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             var t2_r1 = 0
             var t2_r2 = 0
@@ -1991,7 +1660,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_05_coherence_same_read_opaque_0_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             var t1_r1 = 0
             var t1_r2 = 0
@@ -2012,7 +1681,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_05_coherence_same_read_opaque_0_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             var t1_r1 = 0
             var t1_r2 = 0
@@ -2033,7 +1702,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_05_coherence_same_read_opaque_1_0() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             var t1_r1 = 0
             var t1_r2 = 0
@@ -2054,7 +1723,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_05_coherence_same_read_opaque_1_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val a = AtomicInteger(0)
             var t1_r1 = 0
             var t1_r2 = 0
@@ -2075,7 +1744,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_acqrel_0_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -2098,7 +1767,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_acqrel_0_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -2121,7 +1790,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_acqrel_1_0() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -2144,7 +1813,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_acqrel_1_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -2167,7 +1836,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_opaque_0_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -2190,7 +1859,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_opaque_0_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -2213,7 +1882,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_opaque_1_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -2236,7 +1905,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_06_causality_message_passing_opaque_1_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -2259,7 +1928,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_acqrel_0_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2282,7 +1951,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_acqrel_0_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2305,7 +1974,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_acqrel_1_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2328,7 +1997,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_acqrel_1_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2351,7 +2020,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_opaque_0_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2374,7 +2043,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_opaque_0_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2397,7 +2066,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_opaque_1_0() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2420,7 +2089,7 @@ class JMTTests {
     @Test
     fun test_jcstress_basics_07_consensus_dekker_opaque_1_1() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2443,7 +2112,7 @@ class JMTTests {
     @Test
     fun test_jcstress_rmw_09_gas_effects_2_cas_cas() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2466,7 +2135,7 @@ class JMTTests {
     @Test
     fun test_jcstress_rmw_09_gas_effects_3_gts_cas() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2491,7 +2160,7 @@ class JMTTests {
     @Test
     fun test_jcstress_rmw_09_gas_effects_4_gas_cas() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2516,7 +2185,7 @@ class JMTTests {
     @Test
     fun test_2plus2W_opq() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2541,7 +2210,7 @@ class JMTTests {
     @Test
     fun test_iriw_acq_acq() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t2_r1 = 0
@@ -2574,7 +2243,7 @@ class JMTTests {
     @Test
     fun test_iriw_acq_vol() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t2_r1 = 0
@@ -2609,7 +2278,7 @@ class JMTTests {
     @Test
     fun test_iriw_sensibly_fenced() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t2_r1 = 0
@@ -2641,11 +2310,10 @@ class JMTTests {
     }
 
     // RESULT: Never
-    @Ignore // TODO: ADD SC
     @Test
     fun test_iriw_vol() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t2_r1 = 0
@@ -2675,11 +2343,11 @@ class JMTTests {
     }
 
     // RESULT: Sometimes
-    @Ignore // TODO: ADD SC
+    @Ignore // LOAD BUFFERING
     @Test
     fun test_lb_fake_fence() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val v = AtomicInteger(0)
@@ -2707,7 +2375,7 @@ class JMTTests {
     @Test
     fun test_lb_if() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2734,7 +2402,7 @@ class JMTTests {
     @Test
     fun test_lb_opq() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertNever(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2759,7 +2427,7 @@ class JMTTests {
     @Test
     fun test_lb_quasi_fence() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val v = AtomicInteger(0)
@@ -2787,7 +2455,7 @@ class JMTTests {
     @Test
     fun test_lb_ra() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -2810,7 +2478,7 @@ class JMTTests {
     @Test
     fun test_mp_2_access() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 1, 1, 0))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
@@ -2844,7 +2512,7 @@ class JMTTests {
     @Test
     fun test_mp_2_fence() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(1, 1, 1, 0))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val z = AtomicInteger(0)
@@ -2878,7 +2546,7 @@ class JMTTests {
     @Test
     fun test_mp_fadd_acq() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 2, 0))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -2907,7 +2575,7 @@ class JMTTests {
     @Test
     fun test_mp_fadd_rel() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 2, 0))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -2935,7 +2603,7 @@ class JMTTests {
     @Test
     fun test_mp_fadd_vol() {
         val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(1, 2, 0))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -2963,7 +2631,7 @@ class JMTTests {
     @Test
     fun test_mp_fake_fence() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val v = AtomicInteger(0)
@@ -2992,7 +2660,7 @@ class JMTTests {
     @Test
     fun test_mp_fence() {
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 0, 0))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val f = AtomicInteger(0)
@@ -3021,7 +2689,7 @@ class JMTTests {
     @Test
     fun test_mp_large_transfer() {
         val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 1, 0))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val f = AtomicInteger(0)
@@ -3048,7 +2716,7 @@ class JMTTests {
     @Test
     fun test_mp_once_two_unsync_writers() {
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0, 1, 2))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -3079,7 +2747,7 @@ class JMTTests {
     @Test
     fun test_mp_overwrite() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -3100,11 +2768,10 @@ class JMTTests {
     }
 
     // RESULT: Never
-    @Ignore // TODO: ADD SC
     @Test
     fun test_mp_quasi_fence() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val v = AtomicInteger(0)
@@ -3132,7 +2799,7 @@ class JMTTests {
     @Test
     fun test_mp_trans() {
         val forbiddenOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(2, 2, 1))
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -3161,7 +2828,7 @@ class JMTTests {
     @Test
     fun test_no_future_read_opq() {
         val forbiddenOutcomes: Set<Int> = setOf(1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             var t0_r1 = 0
             val t0 = thread {
@@ -3177,7 +2844,7 @@ class JMTTests {
     @Test
     fun test_no_future_read_pln() {
         val forbiddenOutcomes: Set<Int> = setOf(1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             var t0_r1 = 0
             val t0 = thread {
@@ -3193,7 +2860,7 @@ class JMTTests {
     @Test
     fun test_no_future_read_ra() {
         val forbiddenOutcomes: Set<Int> = setOf(1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             var t0_r1 = 0
             val t0 = thread {
@@ -3209,7 +2876,7 @@ class JMTTests {
     @Test
     fun test_no_future_read_vol() {
         val forbiddenOutcomes: Set<Int> = setOf(1)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             var t0_r1 = 0
             val t0 = thread {
@@ -3233,7 +2900,7 @@ class JMTTests {
     @Test
     fun test_release_sequence_opq() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(2 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -3257,7 +2924,7 @@ class JMTTests {
     @Test
     fun test_release_sequence_pln() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(2 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t1_r1 = 0
@@ -3278,11 +2945,11 @@ class JMTTests {
     }
 
     // RESULT: Sometimes
-    @Ignore // TODO: ADD SC
+    @Ignore // TODO: ATOMICS
     @Test
     fun test_release_sequence_rmw() {
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 2, 0))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -3307,7 +2974,7 @@ class JMTTests {
     @Test
     fun test_rseq_weak() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(3 to 1)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t2_r1 = 0
@@ -3337,7 +3004,7 @@ class JMTTests {
     @Test
     fun test_sb_fadd_volatile_acquire() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -3360,7 +3027,7 @@ class JMTTests {
     @Test
     fun test_sb_fake_fence() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val v = AtomicInteger(0)
@@ -3388,7 +3055,7 @@ class JMTTests {
     @Test
     fun test_SB_opq_vol() {
         val expectedOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0
@@ -3408,11 +3075,10 @@ class JMTTests {
     }
 
     // RESULT: Never
-    @Ignore // TODO: ADD SC
     @Test
     fun test_sb_quasi_fence() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val v = AtomicInteger(0)
@@ -3440,7 +3106,7 @@ class JMTTests {
     @Test
     fun test_sb_rfis() {
         val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             var t0_r1 = 0

@@ -46,6 +46,8 @@ interface ExtendedExecution : Execution<AtomicThreadEvent> {
      */
     val memoryAccessEventIndex : AtomicMemoryAccessEventIndex
 
+    val consistencyChecker : WritesBeforeChecker
+
     /**
      * The read-modify-write order of the execution.
      *
@@ -138,7 +140,7 @@ fun MutableExtendedExecution(memoryModel: MemoryModel): MutableExtendedExecution
             return when (memoryModel) {
                 MemoryModel.SequentialConsistency -> happensBeforeOrder
                 MemoryModel.ReleaseAcquire -> happensBeforeSameLocationOrder
-                MemoryModel.JAM21 -> TODO()
+                MemoryModel.JAM21 -> happensBeforeOrder
             }
         }
 
@@ -203,27 +205,15 @@ fun MutableExtendedExecution(memoryModel: MemoryModel): MutableExtendedExecution
 
     override val memoryModelConsistencyOrder: Relation<AtomicThreadEvent> by memoryModelConsistencyOrderComputable
 
-    private val consistencyChecker = aggregateConsistencyCheckers(
-        execution = this,
-        listOf<AtomicEventConsistencyChecker>(
-            ReadModifyWriteAtomicityChecker(execution = this),
-
-            IncrementalMemoryModelConsistencyChecker(
-                execution = this,
-                memoryModel = memoryModel,
-                checkReleaseAcquireConsistency = true,
-            )
-        ),
-        listOf(),
-    )
+    override val consistencyChecker = WritesBeforeChecker(memoryAccessEventIndex, memoryModel)
 
     private val trackers = listOf(
         memoryAccessEventIndex.incrementalTracker(),
-        consistencyChecker.incrementalTracker(),
+        consistencyChecker
     )
 
     override val inconsistency: Inconsistency?
-        get() = consistencyChecker.state.inconsistency
+        get() = consistencyChecker.inconsistency
 
     override fun checkConsistency(): Inconsistency? {
         return consistencyChecker.completeCheck()
@@ -286,7 +276,7 @@ fun MutableExtendedExecution(memoryModel: MemoryModel): MutableExtendedExecution
 
 }
 
-private typealias ExtendedExecutionTracker = ExecutionTracker<AtomicThreadEvent, MutableExtendedExecution>
+typealias ExtendedExecutionTracker = ExecutionTracker<AtomicThreadEvent, MutableExtendedExecution>
 
 private fun MutableEventIndex<AtomicThreadEvent, *, *>.incrementalTracker(): ExtendedExecutionTracker {
     return object : ExtendedExecutionTracker {

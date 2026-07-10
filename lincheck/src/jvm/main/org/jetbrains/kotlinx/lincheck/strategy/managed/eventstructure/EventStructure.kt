@@ -688,7 +688,7 @@ internal class EventStructure(
                             !staleWrites.any { write -> causalityOrder.orEqual(it, write) }
                 }
             }
-            MemoryModel.ReleaseAcquire -> {
+            MemoryModel.ReleaseAcquire, MemoryModel.JAM21 -> {
                 val eventFrontier = execution.calculateFrontier(event.happensBeforeClock)
                 val racyWrites = calculateRacyWrites(label.location, eventFrontier)
                 candidates.filter {
@@ -696,8 +696,6 @@ internal class EventStructure(
                     !racyWrites.any { write -> happensBeforeOrder(it, write) }
                 }
             }
-            MemoryModel.JAM21 ->
-                candidates
         }
     }
 
