@@ -1292,4 +1292,13 @@ internal class EventStructure(
         return memoryOrder
     }
 
+    //TODO: do we need code location?
+    fun addFenceEvent(iThread: Int, codeLocation: Int, memoryOrder: MemoryOrdering) {
+        val label = FenceLabel(
+            memoryOrder
+        )
+        addSendEvent(iThread, label)
+
+    }
+
 }

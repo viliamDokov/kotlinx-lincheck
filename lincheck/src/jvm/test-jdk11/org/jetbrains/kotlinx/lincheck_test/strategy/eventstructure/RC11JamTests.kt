@@ -2660,4 +2660,41 @@ class RC11JamTests {
             Triple(r1, r2, r3)
         }
     }
+
+    @Test
+    fun testMpFencesNotTransitive() {
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1,1,0))
+        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
+            val x = AtomicInteger(0)
+            val y = AtomicInteger(0)
+            val z = AtomicInteger(0)
+
+            var r0 = -1
+            var r1 = -1
+            var r2 = -1
+
+            val t0 = thread {
+                x.setPlain(1)
+                VarHandle.releaseFence()
+                y.setPlain(1)
+            }
+
+            val t1 = thread {
+                r0 = y.getPlain()
+                z.setPlain(1)
+            }
+
+            val t2 = thread {
+                r1 = z.getPlain()
+                VarHandle.acquireFence()
+                r2 = x.getPlain()
+            }
+
+            t0.join()
+            t1.join()
+            t2.join()
+
+            Triple(r0, r1, r2)
+        }
+    }
 }

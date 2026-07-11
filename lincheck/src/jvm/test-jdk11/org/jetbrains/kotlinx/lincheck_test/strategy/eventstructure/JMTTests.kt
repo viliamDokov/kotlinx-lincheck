@@ -2655,12 +2655,10 @@ class JMTTests {
         }
     }
 
-    // TODO: fences are not supported by the event structure strategy
-    @Ignore
     @Test
     fun test_mp_fence() {
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 0, 0))
-        litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
+        litmusTest(assertNever(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val f = AtomicInteger(0)
