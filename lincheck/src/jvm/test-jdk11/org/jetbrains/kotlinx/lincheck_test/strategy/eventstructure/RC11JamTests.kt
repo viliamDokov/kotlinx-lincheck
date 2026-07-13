@@ -42,6 +42,7 @@ import org.junit.Test
 import org.junit.Ignore
 import org.junit.Rule
 import org.junit.rules.TestName
+import java.lang.invoke.MethodHandles
 import java.lang.invoke.VarHandle
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
@@ -82,7 +83,7 @@ class RC11JamTests {
 
     @Test
     fun test4SB() {
-        val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(0,0,0,0))
+        val forbiddenOutcomes: Set<List<Int>> = setOf(listOf(0, 0, 0, 0))
         litmusTest(assertSometimes(forbiddenOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -120,7 +121,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun test6SB() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(0,0,0,0,0,0))
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(0, 0, 0, 0, 0, 0))
         litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -397,7 +398,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testFig1() {
-        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1,1,1))
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 1, 1))
         litmusTest(assertSame(expectedOutcomes, UNKNOWN), MemoryModel.ReleaseAcquire) {
             val a = AtomicInteger(0)
             val x = AtomicInteger(0)
@@ -421,7 +422,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testIriwInternal() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,0,1,0))
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
         litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -448,7 +449,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testIRIW() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,0,1,0))
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
         litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -506,7 +507,7 @@ class RC11JamTests {
     @Test
     fun testPodrw001() {
         // NOTE: this is just Store Buffering with 3 reads
-        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0,0,0))
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0, 0, 0))
         litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -556,7 +557,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testX001() {
-        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0,1,0))
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(0, 1, 0))
         litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -582,7 +583,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testX003() {
-        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(2,2,0))
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(2, 2, 0))
         litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -628,7 +629,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testX86_2plus2W() {
-        val expectedOutcomes: Set<Pair<Int,Int>> = setOf((2 to 2))
+        val expectedOutcomes: Set<Pair<Int, Int>> = setOf((2 to 2))
         litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -742,7 +743,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testIRIWPoaasLL() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,0,1,0))
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
         litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -775,7 +776,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testIRIWPoapsLL() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,0,1,0))
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 0, 1, 0))
         litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -809,7 +810,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testLinearisation() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(2,1,1,1,1))
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(2, 1, 1, 1, 1))
         litmusTest(assertNever(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -847,7 +848,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testLinearisation2() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(2,1,1,1,1))
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(2, 1, 1, 1, 1))
         litmusTest(assertNever(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -933,7 +934,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testRoachmotel() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,1,1,1))
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 1, 1, 1))
         litmusTest(assertNever(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val a = AtomicInteger(0)
             val x = AtomicInteger(0)
@@ -958,7 +959,7 @@ class RC11JamTests {
             }
             val t2 = thread {
                 r3 = y.getOpaque()
-                if (r3 != 0)  {
+                if (r3 != 0) {
                     x.setOpaque(1)
                 }
             }
@@ -972,7 +973,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testRoachmotel2() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1,1,1,1))
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(1, 1, 1, 1))
         litmusTest(assertNever(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val a = AtomicInteger(0)
             val x = AtomicInteger(0)
@@ -1064,7 +1065,7 @@ class RC11JamTests {
 
     @Test
     fun testTotalco() {
-        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1,1,1))
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 1, 1))
         litmusTest(assertNever(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -1093,7 +1094,7 @@ class RC11JamTests {
     // TODO: actual failing test, that can be fixed with improvements to do the model checker
     @Test
     fun testWWRRWWRRWsilpPoaaWsilpPoaa() {
-        val expectedOutcomes: Set<List<Int>> = setOf(listOf(2,2,2,0,2,0))
+        val expectedOutcomes: Set<List<Int>> = setOf(listOf(2, 2, 2, 0, 2, 0))
         litmusTest(assertSometimes(expectedOutcomes), MemoryModel.ReleaseAcquire) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -1471,7 +1472,11 @@ class RC11JamTests {
 
         companion object {
             private val updater =
-                AtomicReferenceFieldUpdater.newUpdater(VolatileReferenceVariable::class.java, String::class.java, "variable")
+                AtomicReferenceFieldUpdater.newUpdater(
+                    VolatileReferenceVariable::class.java,
+                    String::class.java,
+                    "variable"
+                )
 
             private val U = UnsafeHolder.UNSAFE
 
@@ -1855,7 +1860,6 @@ class RC11JamTests {
     }
 
 
-
     class ParkLatchedVariable {
 
         private var variable: Int = 0
@@ -1966,7 +1970,11 @@ class RC11JamTests {
             (SuspendedResult to false),
             (1 to true)
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r = getValueSuspended(results.parallelResults[0][0]!!)
             val b = getValue<Boolean>(results.parallelResults[1][0]!!)
             (r to b)
@@ -1997,7 +2005,11 @@ class RC11JamTests {
             (SuspendedResult to false),
             (CancelledOperationException to true)
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r = getValueSuspended(results.parallelResults[0][0]!!)
             val b = getValue<Boolean>(results.parallelResults[1][0]!!)
             (r to b)
@@ -2028,7 +2040,11 @@ class RC11JamTests {
             (CancelledResult to false),
             (1 to true)
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r = getValueSuspended(results.parallelResults[0][0]!!)
             val b = getValue<Boolean>(results.parallelResults[1][0]!!)
             (r to b)
@@ -2061,7 +2077,11 @@ class RC11JamTests {
             (CancelledResult to true),
             // (1 to true),
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r = getValueSuspended(results.parallelResults[0][0]!!)
             val b = getValue<Boolean>(results.parallelResults[1][0]!!)
             (r to b)
@@ -2097,7 +2117,11 @@ class RC11JamTests {
             Triple(1, true, false),
             Triple(CancelledOperationException, false, true)
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r = getValueSuspended(results.parallelResults[0][0]!!)
             val b1 = getValue<Boolean>(results.parallelResults[1][0]!!)
             val b2 = getValue<Boolean>(results.parallelResults[2][0]!!)
@@ -2129,7 +2153,11 @@ class RC11JamTests {
             Triple(SuspendedResult, 1, true),
             Triple(1, SuspendedResult, true),
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r1 = getValueSuspended(results.parallelResults[0][0]!!)
             val r2 = getValueSuspended(results.parallelResults[1][0]!!)
             val b = getValue<Boolean>(results.parallelResults[2][0]!!)
@@ -2161,7 +2189,11 @@ class RC11JamTests {
             Triple(1, true, false),
             Triple(2, false, true),
         )
-        litmusTest(CoroutineWrapper::class.java, testScenario, assertSame(outcomes, executionCount = UNKNOWN)) { results ->
+        litmusTest(
+            CoroutineWrapper::class.java,
+            testScenario,
+            assertSame(outcomes, executionCount = UNKNOWN)
+        ) { results ->
             val r = getValueSuspended(results.parallelResults[0][0]!!)
             val b1 = getValue<Boolean>(results.parallelResults[1][0]!!)
             val b2 = getValue<Boolean>(results.parallelResults[2][0]!!)
@@ -2183,19 +2215,23 @@ class RC11JamTests {
                 return "BAR:($b)"
             }
         }
+
         class Foo {
             var x = AtomicInteger(0)
-            @Volatile var y = Bar(0)
+            @Volatile
+            var y = Bar(0)
             fun one() {
                 x.get() == 0
                 y = Bar(1)
                 val x = y
             }
+
             fun two() {
                 y = Bar(2)
                 x.set(1)
             }
         }
+
         val testScenario = scenario {
             parallel {
                 thread {
@@ -2217,7 +2253,8 @@ class RC11JamTests {
         // Same thing as the test above, but with strings, which work a bit differently
         class Foo {
             var x = AtomicInteger(0)
-            @Volatile var y = ""
+            @Volatile
+            var y = ""
 
             fun one() {
                 x.get() == 0
@@ -2230,6 +2267,7 @@ class RC11JamTests {
             }
 
         }
+
         val testScenario = scenario {
             parallel {
                 thread {
@@ -2251,25 +2289,30 @@ class RC11JamTests {
         // This test tries to force the GC to collect the external Baz(0), which is left unused after each testInvocation
         // The ObjectTracker used to rely on a weak reference to the GC'd object, which would cause trouble
         class Baz(a: Int) {
-            @Volatile var b = a
+            @Volatile
+            var b = a
             override fun toString(): String {
                 return "BAZ:($b)"
             }
         }
+
         class Foo {
             // The Baz(0) here is an external object
             // Since it is the intial value of a field of the test class
-            @Volatile var y = Baz(0)
-            fun one() : Int {
+            @Volatile
+            var y = Baz(0)
+            fun one(): Int {
                 val res = y.b
                 return 0
             }
+
             fun two() {
                 y.b = 0
                 y.b = 1
                 y.b = 2
             }
         }
+
         val testScenario = scenario {
             parallel {
                 thread {
@@ -2299,25 +2342,31 @@ class RC11JamTests {
                 return "BAR:($b)"
             }
         }
+
         class Baz(a: Bar) {
-            @Volatile var b = a
+            @Volatile
+            var b = a
             override fun toString(): String {
                 return "BAZ:($b)"
             }
         }
+
         class Foo {
-            @Volatile var y = Baz(Bar(AtomicInteger(0)))
-            fun one() : Int {
+            @Volatile
+            var y = Baz(Bar(AtomicInteger(0)))
+            fun one(): Int {
                 y.b = Bar(AtomicInteger(1))
                 val res = y.b.b.get()
                 return res
             }
+
             fun two() {
                 y.b = Bar(AtomicInteger(2))
                 y.b.b = AtomicInteger(3)
                 y.b.b.set(4)
             }
         }
+
         val testScenario = scenario {
             parallel {
                 thread {
@@ -2328,7 +2377,7 @@ class RC11JamTests {
                 }
             }
         }
-        val outcomes: Set<Int> = setOf(1,2,3,4)
+        val outcomes: Set<Int> = setOf(1, 2, 3, 4)
         litmusTest(Foo::class.java, testScenario, assertSame(outcomes, UNKNOWN)) { results ->
             val b1 = getValue<Int>(results.parallelResults[0][0]!!)
             return@litmusTest b1
@@ -2530,6 +2579,7 @@ class RC11JamTests {
                 x = 42_000_000
                 return x
             }
+
             fun thread1() {
                 x = "foo"
             }
@@ -2605,7 +2655,7 @@ class RC11JamTests {
                     actor(ConcurrentHashMap<Int, Int>::put, 3, 4)
                 }
                 thread {
-                    actor(ConcurrentHashMap<Int, Int>::put, 3,4)
+                    actor(ConcurrentHashMap<Int, Int>::put, 3, 4)
                     actor(ConcurrentHashMap<Int, Int>::get, 2)
                 }
             }
@@ -2653,7 +2703,8 @@ class RC11JamTests {
             }
         }
         val outcomes = setOf(Triple(null, null, 0), Triple(null, null, null))
-        litmusTest(ConcurrentSkipListMap::class.java, executionScenario, assertSame(outcomes, UNKNOWN)) { results ->
+        litmusTest(ConcurrentSkipListMap::class.java, executionScenario, assertSame(outcomes, UNKNOWN),
+            MemoryModel.JAM21) { results ->
             val r1 = getValue<Int?>(results.parallelResults[0][0]!!)
             val r2 = getValue<Int?>(results.parallelResults[1][0]!!)
             val r3 = getValue<Int?>(results.parallelResults[0][1]!!)
@@ -2663,7 +2714,7 @@ class RC11JamTests {
 
     @Test
     fun testMpFencesNotTransitive() {
-        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1,1,0))
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 1, 0))
         litmusTest(assertSometimes(expectedOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
@@ -2695,6 +2746,419 @@ class RC11JamTests {
             t2.join()
 
             Triple(r0, r1, r2)
+        }
+    }
+
+    @Test
+    fun testMpReleaseWriteAcquireFence() {
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(
+            Triple(1, 1, 1),
+            Triple(1, 0, 1),
+            Triple(0, 1, 1),
+            Triple(0, 1, 0),
+            Triple(0, 0, 1),
+            Triple(0, 0, 0)
+        )
+        litmusTest(assertSame(expectedOutcomes), MemoryModel.JAM21) {
+            val x = AtomicInteger(0)
+            val y = AtomicInteger(0)
+            val flag = AtomicInteger(0)
+
+            var r0 = -1
+            var r1 = -1
+            var r2 = -1
+
+            val t0 = thread {
+                x.setPlain(1)
+                y.setPlain(1)
+                flag.setRelease(1)
+            }
+
+            val t1 = thread {
+                r0 = flag.getPlain()
+                r1 = x.getPlain()
+                VarHandle.acquireFence()
+                r2 = y.getPlain()
+            }
+
+            t0.join()
+            t1.join()
+
+            Triple(r0, r1, r2)
+        }
+    }
+
+    @Test
+    fun testMpReleaseFenceAcquireWrite() {
+        val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(
+            Triple(1, 1, 1),
+            Triple(1, 1, 0),
+//            Triple(1, 0, 1),
+//            Triple(1, 0, 0),
+            Triple(0, 1, 1),
+            Triple(0, 1, 0),
+            Triple(0, 0, 1),
+            Triple(0, 0, 0)
+        )
+        litmusTest(assertSame(expectedOutcomes), MemoryModel.JAM21) {
+            val x = AtomicInteger(0)
+            val y = AtomicInteger(0)
+            val flag = AtomicInteger(0)
+
+            var r0 = -1
+            var r1 = -1
+            var r2 = -1
+
+            val t0 = thread {
+                x.setPlain(1)
+                VarHandle.releaseFence()
+                y.setPlain(1)
+                flag.setPlain(1)
+            }
+
+            val t1 = thread {
+                r0 = flag.getAcquire()
+                r1 = x.getPlain()
+                r2 = y.getPlain()
+            }
+
+            t0.join()
+            t1.join()
+
+            Triple(r0, r1, r2)
+        }
+    }
+
+
+    @Test
+    fun testManyRMW() {
+
+        val outcomes = setOf<Triple<Int, Int, Int>>(
+            Triple(0, 1, 2),
+            Triple(0, 2, 1),
+            Triple(1, 0, 2),
+            Triple(1, 2, 0),
+            Triple(2, 0, 1),
+            Triple(2, 1, 0),
+        )
+        litmusTest(assertSame(outcomes)) {
+            val x = AtomicInteger(0)
+
+            val results = IntArray(3)
+
+            val t1 = thread {
+                results[0] = x.getAndIncrement()
+            }
+            val t2 = thread {
+                results[1] = x.getAndIncrement()
+            }
+            val t3 = thread {
+                results[2] = x.getAndIncrement()
+            }
+
+            t1.join()
+            t2.join()
+            t3.join()
+
+            Triple(results[0], results[1], results[2])
+        }
+    }
+
+    @Test
+    fun testRMW4() {
+
+        val outcomes = setOf<List<Int>>(
+            listOf(0, 1, 2, 3),
+            listOf(0, 1, 3, 2),
+            listOf(0, 2, 1, 3),
+            listOf(0, 2, 3, 1),
+            listOf(0, 3, 1, 2),
+            listOf(0, 3, 2, 1),
+
+            listOf(1, 0, 2, 3),
+            listOf(1, 0, 3, 2),
+            listOf(1, 2, 0, 3),
+            listOf(1, 2, 3, 0),
+            listOf(1, 3, 0, 2),
+            listOf(1, 3, 2, 0),
+
+            listOf(2, 0, 1, 3),
+            listOf(2, 0, 3, 1),
+            listOf(2, 1, 0, 3),
+            listOf(2, 1, 3, 0),
+            listOf(2, 3, 0, 1),
+            listOf(2, 3, 1, 0),
+
+            listOf(3, 0, 1, 2),
+            listOf(3, 0, 2, 1),
+            listOf(3, 1, 0, 2),
+            listOf(3, 1, 2, 0),
+            listOf(3, 2, 0, 1),
+            listOf(3, 2, 1, 0),
+        )
+        litmusTest(assertSame(outcomes)) {
+            val x = AtomicInteger(0)
+
+            val results = IntArray(4)
+
+            val t1 = thread {
+                results[0] = x.getAndIncrement()
+            }
+            val t2 = thread {
+                results[1] = x.getAndIncrement()
+            }
+            val t3 = thread {
+                results[2] = x.getAndIncrement()
+            }
+            val t4 = thread {
+                results[3] = x.getAndIncrement()
+            }
+
+            t1.join()
+            t2.join()
+            t3.join()
+            t4.join()
+
+            listOf(results[0], results[1], results[2], results[3])
+        }
+    }
+
+
+    @Test
+    fun testForcedRmwRR() {
+        val outcomes = setOf<List<Int>>(
+            listOf(0, 0, 0),
+            listOf(0, 0, 1),
+            listOf(0, 0, 42),
+            listOf(0, 1, 1),
+            listOf(0, 1, 42),
+            listOf(0, 42, 42),
+            // The 0,42,43 // should be impossible
+            listOf(42, 0, 0),
+            listOf(42, 0, 42),
+            listOf(42, 0, 43),
+            listOf(42, 42, 42),
+            listOf(42, 42, 43),
+            listOf(42, 43, 43),
+        )
+        litmusTest(assertSame(outcomes)) {
+            val x = AtomicInteger(0)
+            val r = IntArray(3)
+
+            val t1 = thread {
+                r[0] = x.getAndIncrement()
+            }
+
+            val t2 = thread {
+                x.setOpaque(42)
+            }
+
+            val t3 = thread {
+                r[1] = x.getOpaque()
+                r[2] = x.getOpaque()
+            }
+
+            t1.join()
+            t2.join()
+            t3.join()
+
+            listOf(r[0], r[1], r[2])
+        }
+    }
+
+    @Test
+    fun testForcedRmwWW() {
+        val outcomes = setOf<List<Int>>(
+            listOf(42),
+        )
+        litmusTest(assertSame(outcomes)) {
+            val x = AtomicInteger(0)
+            val r = IntArray(1)
+
+            val t1 = thread {
+                x.setOpaque(42)
+                r[0] = x.getAndIncrement()
+            }
+
+            t1.join()
+
+            listOf(r[0])
+        }
+    }
+
+    @Test
+    fun testForcedRmwWR() {
+        val outcomes = setOf<List<Int>>(
+            // (0, 1) outcome should not happen
+            listOf(0, 42),
+            listOf(42, 43),
+            listOf(42, 42),
+        )
+        litmusTest(assertSame(outcomes)) {
+            val x = AtomicInteger(0)
+            val r = IntArray(2)
+
+            val t1 = thread {
+                r[0] = x.getAndIncrement()
+            }
+            val t2 = thread {
+                x.setOpaque(42)
+                r[1] = x.getOpaque()
+            }
+
+            t1.join()
+            t2.join()
+
+            listOf(r[0], r[1])
+        }
+    }
+
+    @Test
+    fun testForcedRmwRW() {
+        val outcomes = setOf<List<Int>>(
+            listOf(0, 0),
+            listOf(0, 42),
+            listOf(42, 42),
+            // (42, 0) should not happen
+        )
+        litmusTest(assertSame(outcomes)) {
+            val x = AtomicInteger(0)
+            val r = IntArray(2)
+
+            val t1 = thread {
+                r[0] = x.getOpaque()
+                r[1] = x.getAndIncrement()
+            }
+            val t2 = thread {
+                x.setOpaque(42)
+            }
+
+            t1.join()
+            t2.join()
+
+            listOf(r[0], r[1])
+        }
+    }
+
+    class MyAtomicInteger {
+
+        @JvmField
+        var value: Int
+
+        constructor(initialValue: Int) {
+            value = 0; // This is just to shut up the checker
+            handle.setVolatile(this, initialValue)
+        }
+
+        companion object {
+            private val handle = run {
+                val lookup = MethodHandles.lookup()
+                lookup.findVarHandle(MyAtomicInteger::class.java, "value", Int::class.javaPrimitiveType)
+            }
+        }
+
+        fun getAndSetAcquire(value: Int): Int = handle.getAndSetAcquire(this, value) as Int
+        fun getAndSet(value: Int): Int = handle.getAndSet(this, value) as Int
+        fun get(): Int = handle.get(this) as Int
+        fun getOpaque(): Int = handle.getOpaque(this) as Int
+        fun getAcquire(): Int = handle.getAcquire(this) as Int
+    }
+
+    @Test
+    fun testRMW2() {
+        // TODO: fix this annoying aah test case
+        val outcomes = setOf<List<Int>>(
+            listOf(0,1,2,3,3),
+            listOf(0,1,2,2,3),
+            listOf(0,1,2,2,2),
+            listOf(0,1,2,1,3),
+            listOf(0,1,2,1,2),
+            listOf(0,1,2,1,1),
+            listOf(0,1,2,0,3),
+            listOf(0,1,2,0,2),
+            listOf(0,1,2,0,1),
+            listOf(0,1,2,0,0),
+            // 0,2,1
+            listOf(0,3,1,3,3),
+            listOf(0,3,1,2,3),
+            listOf(0,3,1,2,2),
+            listOf(0,3,1,1,3),
+            listOf(0,3,1,1,2),
+            listOf(0,3,1,1,1),
+            listOf(0,3,1,0,3),
+            listOf(0,3,1,0,2),
+            listOf(0,3,1,0,1),
+            listOf(0,3,1,0,0),
+            //  1,0,2
+            listOf(2,0,1,3,3),
+            listOf(2,0,1,2,3),
+            listOf(2,0,1,2,2),
+            listOf(2,0,1,1,3),
+            listOf(2,0,1,1,2),
+            listOf(2,0,1,1,1),
+            listOf(2,0,1,0,3),
+            listOf(2,0,1,0,2),
+            listOf(2,0,1,0,1),
+            listOf(2,0,1,0,0),
+            // 1,2,0
+            listOf(3,1,0,3,3),
+            listOf(3,1,0,2,3),
+            listOf(3,1,0,2,2),
+            listOf(3,1,0,1,3),
+            listOf(3,1,0,1,2),
+            listOf(3,1,0,1,1),
+            listOf(3,1,0,0,3),
+            listOf(3,1,0,0,2),
+            listOf(3,1,0,0,1),
+            listOf(3,1,0,0,0),
+            // 2,0,1
+            listOf(3,0,2,3,3),
+            listOf(3,0,2,2,3),
+            listOf(3,0,2,2,2),
+            listOf(3,0,2,1,3),
+            listOf(3,0,2,1,2),
+            listOf(3,0,2,1,1),
+            listOf(3,0,2,0,3),
+            listOf(3,0,2,0,2),
+            listOf(3,0,2,0,1),
+            listOf(3,0,2,0,0),
+            // 2,1,0
+            listOf(2,3,0,3,3),
+            listOf(2,3,0,2,3),
+            listOf(2,3,0,2,2),
+            listOf(2,3,0,1,3),
+            listOf(2,3,0,1,2),
+            listOf(2,3,0,1,1),
+            listOf(2,3,0,0,3),
+            listOf(2,3,0,0,2),
+            listOf(2,3,0,0,1),
+            listOf(2,3,0,0,0),
+        )
+        litmusTest(assertSame(outcomes)) {
+            val x = MyAtomicInteger(0)
+
+            val r = IntArray(5)
+
+            val t1 = thread {
+                r[0] = x.getAndSetAcquire(1)
+            }
+            val t2 = thread {
+                r[1] = x.getAndSetAcquire(2)
+            }
+            val t3 = thread {
+                r[2] = x.getAndSetAcquire(3)
+            }
+            val t4 = thread {
+                r[3] = x.getOpaque()
+                r[4] = x.getOpaque()
+            }
+
+            t1.join()
+            t2.join()
+            t3.join()
+            t4.join()
+
+            listOf(r[0], r[1], r[2], r[3], r[4])
         }
     }
 }
