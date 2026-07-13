@@ -119,7 +119,7 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
             }
 
             // Check sequential Consistency
-            val graph = SCBSimpleRelation(coherenceOrder).toGraph(volatileEventEnumerator.list, volatileEventEnumerator)
+            val graph = SCBRelation(coherenceOrder).toGraph(volatileEventEnumerator.list, volatileEventEnumerator)
             val sorting = topologicalSorting(graph)
             if(sorting != null) return null
         }

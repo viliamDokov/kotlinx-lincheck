@@ -88,7 +88,7 @@ interface ThreadEvent : Event {
     fun predNth(n: Int): ThreadEvent?
 }
 
-fun ThreadEvent.pred(inclusive: Boolean = false, predicate: (ThreadEvent) -> Boolean): ThreadEvent? {
+inline fun ThreadEvent.pred(inclusive: Boolean = false, predicate: (ThreadEvent) -> Boolean): ThreadEvent? {
     if (inclusive && predicate(this))
         return this
     var event: ThreadEvent? = parent
