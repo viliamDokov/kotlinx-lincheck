@@ -363,4 +363,32 @@ class LocksTest {
         }
     }
 
+
+    @Test
+    fun test4GetAndAdd() {
+        val expectedOutcomes = setOf<List<Int>>(
+            listOf(0,1,2,3),
+            listOf(0,3,1,2),
+        )
+        litmusTest(assertSame(expectedOutcomes, UNKNOWN)) {
+            var x = 0;
+            val lock = Object()
+
+            val r = IntArray(4)
+
+            val t1 = thread {
+                synchronized(lock) { r[0] = x++ }
+                synchronized(lock) { r[1] = x++ }
+            }
+            val t2 = thread {
+                synchronized(lock) { r[2] = x++ }
+                synchronized(lock) { r[3] = x++ }
+            }
+
+            t1.join()
+            t2.join()
+
+            listOf(r[0], r[1], r[2], r[3])
+        }
+    }
 }
