@@ -2691,6 +2691,7 @@ class RC11JamTests {
     fun testConcurrentSkipListMap() {
         val put = ConcurrentSkipListMap<Int, Int>::put;
         val remove: (ConcurrentSkipListMap<Int, Int>, Int) -> Int? = ConcurrentSkipListMap<Int, Int>::remove
+        val get: (ConcurrentSkipListMap<Int, Int>, Int) -> Int? = ConcurrentSkipListMap<Int, Int>::get
         val executionScenario = scenario {
             parallel {
                 thread {
@@ -3268,4 +3269,51 @@ class RC11JamTests {
             listOf(r[0], r[1])
         }
     }
+
+    @Test
+    fun testLastZero10Scenario() {
+        class LastZero {
+            val N = 10
+            val array = IntArray(N+1) { 0 }
+
+            constructor() {}
+
+            fun reader() {
+                var j = N
+                while (array[j--] != 0) {}
+            }
+
+            fun writer(i: Int) {
+                array[i] = array[i-1] + 1
+            }
+        }
+
+        val reader = LastZero::reader
+        val writer = LastZero::writer
+
+        val testScenario = scenario {
+            parallel {
+                thread { actor(reader) }
+                thread { actor(writer, 1) }
+                thread { actor(writer, 2) }
+                thread { actor(writer, 3) }
+                thread { actor(writer, 4) }
+                thread { actor(writer, 5) }
+                thread { actor(writer, 6) }
+                thread { actor(writer, 7) }
+                thread { actor(writer, 8) }
+                thread { actor(writer, 9) }
+                thread { actor(writer, 10) }
+            }
+        }
+
+        litmusTest(
+            LastZero::class.java,
+            testScenario,
+            assertSame(setOf(1), 3328),
+            MemoryModel.JAM21,
+            10_000
+        ) { 1 }
+    }
+
 }

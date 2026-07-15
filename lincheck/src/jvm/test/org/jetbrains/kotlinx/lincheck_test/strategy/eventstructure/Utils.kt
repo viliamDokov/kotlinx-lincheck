@@ -89,9 +89,10 @@ internal fun<Outcome> litmusTest(
     testScenario: ExecutionScenario,
     outcomes: Set<Outcome>,
     memoryModel: MemoryModel = MemoryModel.SequentialConsistency,
+    invocations: Int = INVOCATIONS,
     getOutcome: (ExecutionResult) -> Outcome,
 ) {
-    litmusTest(testClass, testScenario, assertSame(outcomes), memoryModel, getOutcome)
+    litmusTest(testClass, testScenario, assertSame(outcomes), memoryModel, invocations, getOutcome)
 }
 
 
@@ -100,6 +101,7 @@ internal fun<Outcome> litmusTest(
     testScenario: ExecutionScenario,
     outcomeVerifier: OutcomeVerifier<Outcome>,
     memoryModel: MemoryModel = MemoryModel.SequentialConsistency,
+    invocations: Int = INVOCATIONS,
     getOutcome: (ExecutionResult) -> Outcome,
 ) {
     val outcomes: MutableList<Outcome> = mutableListOf()
@@ -109,7 +111,7 @@ internal fun<Outcome> litmusTest(
     }
     withLincheckTestContext(InstrumentationMode.EXPERIMENTAL_MODEL_CHECKING) {
         val strategy = createStrategy(testClass, memoryModel, testScenario)
-        val failure = strategy.runIteration(INVOCATIONS, verifier)
+        val failure = strategy.runIteration(invocations, verifier)
         assert(failure == null) { failure.toString() }
         println("Stats: ${strategy.stats}")
         outcomeVerifier.verify(outcomes)
@@ -185,6 +187,7 @@ internal fun <T> createStrategy(
 internal inline fun<reified Outcome> litmusTest(
     outcomeVerifier: OutcomeVerifier<Outcome>,
     memoryModel: MemoryModel = MemoryModel.SequentialConsistency,
+    invocations: Int = INVOCATIONS,
     noinline block: () -> Outcome,
 ) {
     val INVOCATIONS = 10000
