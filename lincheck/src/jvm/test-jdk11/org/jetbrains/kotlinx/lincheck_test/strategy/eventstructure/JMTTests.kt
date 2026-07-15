@@ -2769,7 +2769,8 @@ class JMTTests {
     @Test
     fun test_mp_quasi_fence() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(1 to 0)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
+        // NOTE: see test sb quasi fence as this test is similar to it
+        litmusTest(assertSometimes(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val v = AtomicInteger(0)
@@ -3072,11 +3073,11 @@ class JMTTests {
         }
     }
 
-    // RESULT: Never
     @Test
     fun test_sb_quasi_fence() {
         val forbiddenOutcomes: Set<Pair<Int, Int>> = setOf(0 to 0)
-        litmusTest(assertNever(forbiddenOutcomes), MemoryModel.JAM21) {
+        //NOTE: JCstress observes this outcome on arm, even though it is banned by JMM
+        litmusTest(assertSometimes(forbiddenOutcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val y = AtomicInteger(0)
             val v = AtomicInteger(0)
