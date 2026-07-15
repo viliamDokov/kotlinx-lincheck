@@ -3080,7 +3080,7 @@ class RC11JamTests {
             listOf(0,1,2,0,0),
             // 0,2,1
             listOf(0,3,1,3,3),
-            listOf(0,3,1,2,3),
+            listOf(0,3,1,3,2),
             listOf(0,3,1,2,2),
             listOf(0,3,1,1,3),
             listOf(0,3,1,1,2),
@@ -3093,8 +3093,8 @@ class RC11JamTests {
             listOf(2,0,1,3,3),
             listOf(2,0,1,2,3),
             listOf(2,0,1,2,2),
+            listOf(2,0,1,2,1),
             listOf(2,0,1,1,3),
-            listOf(2,0,1,1,2),
             listOf(2,0,1,1,1),
             listOf(2,0,1,0,3),
             listOf(2,0,1,0,2),
@@ -3102,9 +3102,9 @@ class RC11JamTests {
             listOf(2,0,1,0,0),
             // 1,2,0
             listOf(3,1,0,3,3),
-            listOf(3,1,0,2,3),
+            listOf(3,1,0,3,2),
+            listOf(3,1,0,3,1),
             listOf(3,1,0,2,2),
-            listOf(3,1,0,1,3),
             listOf(3,1,0,1,2),
             listOf(3,1,0,1,1),
             listOf(3,1,0,0,3),
@@ -3113,10 +3113,10 @@ class RC11JamTests {
             listOf(3,1,0,0,0),
             // 2,0,1
             listOf(3,0,2,3,3),
+            listOf(3,0,2,3,1),
             listOf(3,0,2,2,3),
             listOf(3,0,2,2,2),
-            listOf(3,0,2,1,3),
-            listOf(3,0,2,1,2),
+            listOf(3,0,2,2,1),
             listOf(3,0,2,1,1),
             listOf(3,0,2,0,3),
             listOf(3,0,2,0,2),
@@ -3124,10 +3124,10 @@ class RC11JamTests {
             listOf(3,0,2,0,0),
             // 2,1,0
             listOf(2,3,0,3,3),
-            listOf(2,3,0,2,3),
+            listOf(2,3,0,3,2),
+            listOf(2,3,0,3,1),
             listOf(2,3,0,2,2),
-            listOf(2,3,0,1,3),
-            listOf(2,3,0,1,2),
+            listOf(2,3,0,2,1),
             listOf(2,3,0,1,1),
             listOf(2,3,0,0,3),
             listOf(2,3,0,0,2),
@@ -3164,7 +3164,14 @@ class RC11JamTests {
 
     @Test
     fun testRMW3_1() {
-        val outcomes = setOf<List<Int>>()
+        val outcomes = setOf<List<Int>>(
+            listOf(0,1,2,3),
+            listOf(0,3,1,2),
+            listOf(0,2,1,3),
+            listOf(2,3,0,1),
+            listOf(1,2,0,3),
+            listOf(1,3,0,2),
+        )
         litmusTest(assertSame(outcomes)) {
             val x = AtomicInteger(0)
 
@@ -3188,7 +3195,14 @@ class RC11JamTests {
 
     @Test
     fun testRMW3_2() {
-        val outcomes = setOf<List<Int>>()
+        val outcomes = setOf<List<Int>>(
+            listOf(0,1,2,3),
+            listOf(0,3,1,2),
+            listOf(0,2,1,3),
+            listOf(2,3,0,1),
+            listOf(1,2,0,3),
+            listOf(1,3,0,2),
+        )
         class TestClass {
             val x = AtomicInteger(0)
             fun one(): Pair<Int, Int> {
@@ -3221,7 +3235,11 @@ class RC11JamTests {
 
     @Test
     fun testCAS() {
-        val outcomes = setOf<List<Int>>()
+        val outcomes = setOf<List<Int>>(
+            listOf(1,0,0),
+            listOf(0,1,0),
+            listOf(0,0,1),
+        )
         litmusTest(assertSame(outcomes)) {
             val x = AtomicInteger(0)
             val r = IntArray(3)
@@ -3311,7 +3329,7 @@ class RC11JamTests {
             LastZero::class.java,
             testScenario,
             assertSame(setOf(1), 3328),
-            MemoryModel.JAM21,
+            MemoryModel.SequentialConsistency,
             10_000
         ) { 1 }
     }
