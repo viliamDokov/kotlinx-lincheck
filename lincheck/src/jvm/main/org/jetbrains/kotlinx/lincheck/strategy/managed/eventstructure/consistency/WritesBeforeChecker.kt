@@ -46,6 +46,7 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
     private val volatileEventEnumerator = MutableEventEnumerator()
     val writesBeforeTracker = WritesBeforeTrackerReleationMatrix()
     val exclusiveWrites = mutableListOf<AtomicThreadEvent>()
+    val exclusiveReadsFor = mutableMapOf<MemoryLocation, MutableMap<AtomicThreadEvent, AtomicThreadEvent>>()
 
     var stale: Boolean = true
     var consistencyResult : Inconsistency? = null
@@ -68,6 +69,12 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
 
         writesBeforeTracker.addEvent(event)
 
+        // In the case of an exclusive write, we need to handle the
+        if(label.isWrite && label.isExclusive) {
+            val readsFrom = event.exclusiveReadPart.readsFrom
+            writesBeforeTracker.setExclusiveWritesBefore(readsFrom, event)
+        }
+
         // Assumes that we handle the allocation event explicitly
         for(write in memoryAccessEventIndex.getWrites(location)) {
             if(happensBeforeOrder(write, event)) {
@@ -83,9 +90,19 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
     }
 
     private fun trackRMWEvent(event: AtomicThreadEvent) {
-        // We track only the exclusive write when checking
-        if(event.label !is WriteAccessLabel) return
-        exclusiveWrites.add(event)
+        val label = event.label
+        // Track the exclusive reads so we can get better candidates
+        if(label is ReadAccessLabel && label.isResponse) {
+            check(label.isExclusive)
+            val write = event.readsFrom
+            exclusiveReadsFor.getOrPut(label.location) { mutableMapOf() }[write] = event
+            return
+        }
+        // Track the exclusive writes for consistency checking
+        if(label is WriteAccessLabel)  {
+            exclusiveWrites.add(event)
+            return
+        }
     }
 
     private fun trackVolaitleEvent(event: AtomicThreadEvent) { volatileEventEnumerator.add(event) }
@@ -95,6 +112,7 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
         writesBeforeTracker.clear()
         volatileEventEnumerator.clear()
         exclusiveWrites.clear()
+        exclusiveReadsFor.clear()
         execution.enumerationOrderSorted().forEach { onAdd(it) }
     }
 
@@ -141,6 +159,11 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
         }
         return CoherenceViolation()
     }
+
+    fun getExclusiveRead(candidate: AtomicThreadEvent, location: MemoryLocation): AtomicThreadEvent? {
+        return exclusiveReadsFor[location]?.get(candidate)
+    }
+
 }
 
 class SCBRelation(val coherenceOrder: Relation<AtomicThreadEvent>) : Relation<AtomicThreadEvent> {

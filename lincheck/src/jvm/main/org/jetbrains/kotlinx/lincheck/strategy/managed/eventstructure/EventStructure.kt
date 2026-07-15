@@ -663,6 +663,10 @@ internal class EventStructure(
              * because these events are "obsolete" ---
              * reading from them will result in coherence cycle and will violate consistency
              */
+//            label is ReadAccessLabel && label.isRequest && label.isExclusive -> {
+//                filterExclusiveReadSynchronizationCandidates(event, candidates)
+//            }
+//
             label is ReadAccessLabel && label.isRequest -> {
                 filterReadSynchronizationCandidates(event, candidates)
             }
@@ -685,6 +689,25 @@ internal class EventStructure(
             }
 
             else -> candidates
+        }
+    }
+
+    private fun filterExclusiveReadSynchronizationCandidates(
+        event: AtomicThreadEvent,
+        candidates: Sequence<AtomicThreadEvent>
+    ): Sequence<AtomicThreadEvent> {
+        val label = event.label as ReadAccessLabel
+        val location = label.location
+        return candidates.filter { candidate ->
+            // Do not revisit write candidates that have another exclusive read that I depend on...
+            val candidateLabel = candidate.label
+            if (!candidateLabel.isWriteAccessTo(location)) return@filter false
+            val read = execution.consistencyChecker.getExclusiveRead(candidate, location)
+            if (read == null) return@filter true // No other exclusive read, so I can synchronize with this candidate
+            // If the current event depends on the result of the exclusive read then return false
+            println("Candidate: $candidate, read: $read , event: $event ${causalityOrder(read, event)}")
+//            if (causalityOrder(read, event)) return@filter false
+            true
         }
     }
 
