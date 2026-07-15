@@ -127,9 +127,37 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
         val cycle = writesBeforeTracker.hasCycle()
         if(cycle != null) return CoherenceViolation() // TODO: actually add a nicer class
 
-        if(memoryModel != MemoryModel.ReleaseAcquire) return doCheckWithTotalOrders()
+        if(memoryModel == MemoryModel.SequentialConsistency) return doCheckWithTotalOrders()
+        if(memoryModel == MemoryModel.JAM21) return doCheckWithTotalOrders()
 
         return null
+    }
+
+    private fun checkSequentialConsistency(): Inconsistency? {
+        if (volatileEventEnumerator.list.isEmpty()) return null
+        forEachCoherenceOrderSc().forEach { coherenceOrder ->
+            // Check sequential Consistency
+            val graph = SCBRelation(coherenceOrder).toGraph(volatileEventEnumerator.list, volatileEventEnumerator)
+            val sorting = topologicalSorting(graph)
+            if(sorting != null) return null
+        }
+        return CoherenceViolation()
+    }
+
+    private fun forEachCoherenceOrderSc(): Sequence<CoherenceRelation> {
+        val sortings = writesBeforeTracker.writesBeforeGraphs.entries.filter{
+            !it.value.isSingleton()  && !memoryAccessEventIndex.isWriteWriteRaceFree(it.key)
+        }.map {
+            topologicalSortings(it.value)
+        }.toList()
+
+        if(sortings.isEmpty()) {
+            return emptySequence()
+        }
+
+        return sortings.cartesianProduct().map{
+            CoherenceRelation(it)
+        }
     }
 
     private fun doCheckWithTotalOrders() : Inconsistency? {
@@ -149,7 +177,7 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
                 val readsFromWrite = read.readsFrom
                 // If the exclusive write is not directly after the write that the read reads from,
                 // then we this order is bad
-                if(!coherenceOrder.isDirectlyAfter(readsFromWrite, write)) return@forEachCoherenceOrder
+                if(!coherenceOrder.isDirectlyAfter(readsFromWrite, write)) return@forEach
             }
 
             // Check sequential Consistency
@@ -289,6 +317,20 @@ class WritesBeforeTrackerReleationMatrix() : WritesBeforeTracker {
         val graph = writesBeforeGraphs.getOrPut(location) { WritesBeforeGraph() }
         graph.add(writeEvent)
     }
+
+    fun setExclusiveWritesBefore(write1: AtomicThreadEvent, write2: AtomicThreadEvent) {
+        return;
+        check(isWriteEvent(write1))
+        check(isWriteEvent(write2))
+        val location = getLocationForSameLocationWriteAccesses(write1, write2)!!
+        check(write1.label.isWriteAccessTo(location))
+        check(write2.label.isWriteAccessTo(location))
+        val maximalEventList = maximalEvents.getOrPut(location) { mutableSetOf() }
+        maximalEventList.remove(write1)
+        maximalEventList.add(write2)
+        val graph = writesBeforeGraphs.getOrPut(location) { WritesBeforeGraph() }
+        graph.setExclusiveChild(write1, write2)
+    }
 }
 
 class WritesBeforeGraph: Graph<AtomicThreadEvent> {
@@ -379,6 +421,33 @@ class WritesBeforeGraph: Graph<AtomicThreadEvent> {
         _add(write)
         // Make the new event a child of the root, if it different
         setChild(root!!, write)
+    }
+
+    fun setExclusiveChild(write1: AtomicThreadEvent, write2: AtomicThreadEvent) {
+        return;
+        check(isWriteEvent(write1))
+        check(isWriteEvent(write2))
+        check(write1 in nodes) { "Write event $write1 - $root is not in the graph" }
+        check(write2 in nodes) { "Write event $write2 - $root is not in the graph" }
+        check(write1 != write2) { "Exclusive write reads from itself!"}
+
+        // For rmw events we need to make sure that write2 is also a child of any existing rmw
+
+        children[write1]!!.add(write2)
+
+        for(exclusiveChild in children[write1]!!) {
+            if(!exclusiveChild.label.isExclusiveWriteAccess()) continue
+            if(exclusiveChild == write2) continue
+            children[exclusiveChild]!!.add(write2)
+        }
+
+        // And if write2 is exclusive then we need to make sure that all existing children are also its children
+        if(write2.label.isExclusiveWriteAccess()) {
+            for(child in children[write1]!!) {
+                if(child == write2) continue
+                children[write2]!!.add(child)
+            }
+        }
     }
 
 }
