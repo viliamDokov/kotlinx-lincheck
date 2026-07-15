@@ -10,6 +10,7 @@
 
 package org.jetbrains.lincheck_test.datastructures.eventstructure
 
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
 import org.jetbrains.kotlinx.lincheck_test.AbstractLincheckTest
 import org.jetbrains.lincheck.datastructures.IntGen
 import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
@@ -33,9 +34,10 @@ class EConcurrentHashMapTest : AbstractEventStructureTest() {
     fun remove(@Param(name = "key") key: Int) = map.remove(key)
 
     override fun <O : Options<O, *>> O.customize() {
-        iterations(10)
-        invocationsPerIteration(1000)
+        invocationsPerIteration(10000)
         if (this is ModelCheckingOptions) {
+            iterations(30)
+            memoryModel(MemoryModel.SequentialConsistency)
             analyzeStdLib(true)
         }
     }
