@@ -289,7 +289,7 @@ class WritesBeforeTrackerReleationMatrix() : WritesBeforeTracker {
         }.toList()
 
         if(sortings.isEmpty()) {
-            return emptySequence()
+            return sequenceOf(CoherenceRelation(emptyList()))
         }
 
         return sortings.cartesianProduct().map{
