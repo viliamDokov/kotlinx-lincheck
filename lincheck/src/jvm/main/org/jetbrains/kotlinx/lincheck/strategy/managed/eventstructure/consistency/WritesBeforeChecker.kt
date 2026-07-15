@@ -22,11 +22,14 @@ import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.ObjectAllo
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.ReadAccessLabel
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.WriteAccessLabel
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.enumerationOrderSorted
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.exclusiveReadPart
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.getLocationForSameLocationAccesses
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.getLocationForSameLocationWriteAccesses
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.happensBeforeOrder
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.happensBeforeSameLocationOrder
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.isExclusiveWriteAccess
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.isWriteAccessTo
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.isWriteWriteRaceFree
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.readsFrom
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.toGraph
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.topologicalSorting
@@ -44,6 +47,9 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
     val writesBeforeTracker = WritesBeforeTrackerReleationMatrix()
     val exclusiveWrites = mutableListOf<AtomicThreadEvent>()
 
+    var stale: Boolean = true
+    var consistencyResult : Inconsistency? = null
+
 
     val events = mutableListOf<AtomicThreadEvent>()
     val inconsistency : Inconsistency?
@@ -53,6 +59,8 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
         val label = event.label as? MemoryAccessLabel ?: return
         // If not write or read response, then we skip
         if (!(label.isWrite || label.isResponse)) return
+        //  Make sure that the cached result is not stale
+        stale = true
         val location = label.location
 
         if(label.memoryOrdering == MemoryOrdering.VOLATILE) trackVolaitleEvent(event)
@@ -83,6 +91,7 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
     private fun trackVolaitleEvent(event: AtomicThreadEvent) { volatileEventEnumerator.add(event) }
 
     override fun onReset(execution: MutableExtendedExecution) {
+        stale = true
         writesBeforeTracker.clear()
         volatileEventEnumerator.clear()
         exclusiveWrites.clear()
@@ -90,6 +99,13 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
     }
 
     fun completeCheck() : Inconsistency? {
+        if(!stale) return consistencyResult
+        consistencyResult = _completeCheck()
+        stale = false
+        return consistencyResult
+    }
+
+    fun _completeCheck() : Inconsistency? {
         val cycle = writesBeforeTracker.hasCycle()
         if(cycle != null) return CoherenceViolation() // TODO: actually add a nicer class
 
@@ -101,7 +117,7 @@ class WritesBeforeChecker(val memoryAccessEventIndex: AtomicMemoryAccessEventInd
     private fun doCheckWithTotalOrders() : Inconsistency? {
         // No need to compute the graph if there are no volatile events
         if (volatileEventEnumerator.list.isEmpty()) return null
-        writesBeforeTracker.forEachCoherenceOrder { coherenceOrder ->
+        writesBeforeTracker.forEachCoherenceOrder().forEach { coherenceOrder ->
             // Check RMWs
             for (write in exclusiveWrites) {
                 val writeLabel = write.label as WriteAccessLabel
@@ -214,13 +230,19 @@ class WritesBeforeTrackerReleationMatrix() : WritesBeforeTracker {
         maximalEvents.values.forEach { it.clear() }
     }
 
-    inline fun forEachCoherenceOrder(block: (CoherenceRelation) -> Unit) {
-        val sortings = writesBeforeGraphs.values.filter{ !it.isSingleton() }.map { topologicalSortings(it) }.toList()
+    fun forEachCoherenceOrder(): Sequence<CoherenceRelation> {
+        val sortings = writesBeforeGraphs.values.filter{
+            !it.isSingleton()
+        }.map {
+            topologicalSortings(it)
+        }.toList()
+
         if(sortings.isEmpty()) {
-            return block(CoherenceRelation(listOf()))
+            return emptySequence()
         }
-        sortings.cartesianProduct().forEach { orderings ->
-            block(CoherenceRelation(orderings))
+
+        return sortings.cartesianProduct().map{
+            CoherenceRelation(it)
         }
     }
 
@@ -253,10 +275,6 @@ class WritesBeforeGraph: Graph<AtomicThreadEvent> {
     val _nodes = mutableSetOf<AtomicThreadEvent>()
     override val nodes: Set<AtomicThreadEvent>
         get() = _nodes
-
-    private fun isWriteEvent(event: AtomicThreadEvent ) : Boolean {
-        return event.label is WriteAccessLabel || event.label is ObjectAllocationLabel || event.label is InitializationLabel
-    }
 
     fun isSingleton() : Boolean {
         val isSingleton = nodes.size == 1
@@ -434,3 +452,6 @@ class MutableEventEnumerator: Enumerator<AtomicThreadEvent> {
     }
 }
 
+private fun isWriteEvent(event: AtomicThreadEvent ) : Boolean {
+    return event.label is WriteAccessLabel || event.label is ObjectAllocationLabel || event.label is InitializationLabel
+}
