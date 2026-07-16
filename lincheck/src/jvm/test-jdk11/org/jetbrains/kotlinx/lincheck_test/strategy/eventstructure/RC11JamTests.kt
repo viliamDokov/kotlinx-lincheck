@@ -2897,7 +2897,7 @@ class RC11JamTests {
             listOf(3, 2, 0, 1),
             listOf(3, 2, 1, 0),
         )
-        litmusTest(assertSame(outcomes)) {
+        litmusTest(assertSame(outcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val results = IntArray(4)
 
@@ -2941,7 +2941,7 @@ class RC11JamTests {
             listOf(42, 42, 43),
             listOf(42, 43, 43),
         )
-        litmusTest(assertSame(outcomes)) {
+        litmusTest(assertSame(outcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val r = IntArray(3)
 
@@ -2971,7 +2971,7 @@ class RC11JamTests {
         val outcomes = setOf<List<Int>>(
             listOf(42),
         )
-        litmusTest(assertSame(outcomes)) {
+        litmusTest(assertSame(outcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val r = IntArray(1)
 
@@ -2994,7 +2994,7 @@ class RC11JamTests {
             listOf(42, 43),
             listOf(42, 42),
         )
-        litmusTest(assertSame(outcomes)) {
+        litmusTest(assertSame(outcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val r = IntArray(2)
 
@@ -3021,7 +3021,7 @@ class RC11JamTests {
             listOf(42, 42),
             // (42, 0) should not happen
         )
-        litmusTest(assertSame(outcomes)) {
+        litmusTest(assertSame(outcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val r = IntArray(2)
 
@@ -3134,7 +3134,7 @@ class RC11JamTests {
             listOf(2,3,0,0,1),
             listOf(2,3,0,0,0),
         )
-        litmusTest(assertSame(outcomes)) {
+        litmusTest(assertSame(outcomes), MemoryModel.JAM21) {
             val x = MyAtomicInteger(0)
 
             val r = IntArray(5)
@@ -3240,7 +3240,7 @@ class RC11JamTests {
             listOf(0,1,0),
             listOf(0,0,1),
         )
-        litmusTest(assertSame(outcomes)) {
+        litmusTest(assertSame(outcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0)
             val r = IntArray(3)
 
