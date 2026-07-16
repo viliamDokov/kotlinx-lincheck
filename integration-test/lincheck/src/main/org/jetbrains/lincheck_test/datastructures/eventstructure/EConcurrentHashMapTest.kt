@@ -36,7 +36,47 @@ class EConcurrentHashMapTest : AbstractEventStructureTest() {
     override fun <O : Options<O, *>> O.customize() {
         invocationsPerIteration(10000)
         if (this is ModelCheckingOptions) {
-            iterations(30)
+
+//        Generated execution8:
+//        | ---------------------------------- |
+//        | Thread 1  |  Thread 2  | Thread 3  |
+//        | ---------------------------------- |
+//        | get(4)    |            |           |
+//        | remove(2) |            |           |
+//        | ---------------------------------- |
+//        | remove(4) | get(5)     | get(1)    |
+//        | get(1)    | put(1, -7) | put(5, 4) |
+//        | ---------------------------------- |
+//        | remove(4) |            |           |
+//        | get(5)    |            |           |
+//        | ---------------------------------- |
+            addCustomScenario {
+                initial {
+                    actor(EConcurrentHashMapTest::get, 4)
+                    actor(EConcurrentHashMapTest::remove, 2)
+                }
+
+                parallel {
+                    thread {
+                        actor(EConcurrentHashMapTest::remove, 4)
+                        actor(EConcurrentHashMapTest::get, 1)
+                    }
+                    thread {
+                        actor(EConcurrentHashMapTest::get, 5)
+                        actor(EConcurrentHashMapTest::put, 1, 7)
+                    }
+                    thread {
+                        actor(EConcurrentHashMapTest::get, 1)
+                        actor(EConcurrentHashMapTest::put, 5, 4)
+                    }
+                }
+
+                post {
+                    actor(EConcurrentHashMapTest::remove, 4)
+                    actor(EConcurrentHashMapTest::get, 5)
+                }
+            }
+            iterations(0)
             memoryModel(MemoryModel.SequentialConsistency)
             analyzeStdLib(true)
         }
