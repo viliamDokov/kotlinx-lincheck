@@ -130,23 +130,6 @@ class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memor
         // No need to compute the graph if there are no volatile events
         if (volatileEventEnumerator.list.isEmpty()) return null
         writesBeforeTracker.forEachCoherenceOrder().forEach { coherenceOrder ->
-            // Check RMWs
-            println("Writes: ${exclusiveWrites}")
-            for (write in exclusiveWrites) {
-                val writeLabel = write.label as WriteAccessLabel
-                // Get the read event to the rmw
-                val read = write.parent!!
-                val readLabel = read.label as ReadAccessLabel
-                check(readLabel.location == writeLabel.location)
-                check(readLabel.isResponse)
-                check(readLabel.isExclusive)
-
-                val readsFromWrite = read.readsFrom
-                // If the exclusive write is not directly after the write that the read reads from,
-                // then we this order is bad
-                if(!coherenceOrder.isDirectlyAfter(readsFromWrite, write)) return@forEach
-            }
-
             // Check sequential Consistency
             val graph = SCBRelation(coherenceOrder).toGraph(volatileEventEnumerator.list, volatileEventEnumerator)
             val sorting = topologicalSorting(graph)
@@ -469,7 +452,9 @@ class WritesBeforeTrackerImpl(val memoryAccessEventIndex: AtomicMemoryAccessEven
     override fun hasCycle(): Boolean {
         for (location in writesBeforeGraphs.keys) {
             val graph = writesBeforeGraphs[location]!!
-            if(graph.hasCycle()) return true
+            if(graph.hasCycle()) {
+                return true
+            }
         }
         return false
     }
@@ -506,12 +491,6 @@ class WritesBeforeTrackerImpl(val memoryAccessEventIndex: AtomicMemoryAccessEven
         val graph = writesBeforeGraphs.getOrPut(location) { WritesBeforeGraph() }
         graph.add(writeEvent)
 
-        // In the case of an exclusive write, we need to handle the
-        if(label.isWrite && label.isExclusive) {
-            val readsFrom = event.exclusiveReadPart.readsFrom
-            println("Exclusive write: $event reads from $readsFrom")
-            _setExclusiveWritesBefore(readsFrom, writeEvent, location)
-        }
 
         // Assumes that we handle the allocation event explicitly
         for(otherWrite in memoryAccessEventIndex.getWrites(location)) {
@@ -526,21 +505,15 @@ class WritesBeforeTrackerImpl(val memoryAccessEventIndex: AtomicMemoryAccessEven
             }
         }
     }
-
-
-    private fun _setExclusiveWritesBefore(write1: AtomicThreadEvent, write2: AtomicThreadEvent, location: MemoryLocation) {
-        check(isWriteEvent(write1))
-        check(isWriteEvent(write2))
-        check(write1.label.isWriteAccessTo(location))
-        check(write2.label.isWriteAccessTo(location))
-        val graph = writesBeforeGraphs.getOrPut(location) { WritesBeforeGraph() }
-        graph.setExclusiveChild(write1, write2)
-    }
 }
 
 class WritesBeforeGraph: Graph<AtomicThreadEvent> {
 
-    val children: MutableMap<AtomicThreadEvent, MutableSet<AtomicThreadEvent>> = mutableMapOf()
+    val nonExclusiveChildren: MutableMap<AtomicThreadEvent, MutableSet<AtomicThreadEvent>> = mutableMapOf()
+    val exclusiveChildren: MutableMap<AtomicThreadEvent, AtomicThreadEvent> = mutableMapOf()
+    var rmwCycle: Boolean = false // If a cycle due to rmw events is detected, then this flag is set to true
+
+
     var root: AtomicThreadEvent? = null
     val _nodes = mutableSetOf<AtomicThreadEvent>()
     override val nodes: Set<AtomicThreadEvent>
@@ -582,13 +555,13 @@ class WritesBeforeGraph: Graph<AtomicThreadEvent> {
 
         // Skip if already added
         if(event in _nodes) {
-            // Double check that it is added already
-            check(event in children)
+            // Double-check that the map has already been initialized
+            check(event in nonExclusiveChildren)
             return
         }
         // Add it to structures
         _nodes.add(event)
-        children[event] = mutableSetOf()
+        nonExclusiveChildren[event] = mutableSetOf()
     }
 
     fun setChild(write1: AtomicThreadEvent, write2: AtomicThreadEvent) {
@@ -599,22 +572,41 @@ class WritesBeforeGraph: Graph<AtomicThreadEvent> {
 
         if(write1 == write2) return
 
-        children[write1]!!.add(write2)
+        // We need
+        var parent = write1
+        while(exclusiveChildren[parent] != null) {
+            check(nonExclusiveChildren[parent]!!.size == 0) // Double-check that if we have an excludive child, then we have no other children
+            parent = exclusiveChildren[parent]!!
+            if(parent == write2) return // IF we encounter write2 along the way then we need to skip
+        }
+
+
+        nonExclusiveChildren[parent]!!.add(write2) // Add the child to the actual parent
     }
 
     fun clear() {
         root = null
-        children.clear()
+        rmwCycle = false
+        nonExclusiveChildren.clear()
+        exclusiveChildren.clear()
         _nodes.clear()
     }
 
     fun hasCycle(): Boolean {
+        if (rmwCycle) {
+            return true
+        }
         topologicalSorting(this) ?: return true
         return false
     }
 
     override fun adjacent(node: AtomicThreadEvent): List<AtomicThreadEvent> {
-        return children[node]?.toList() ?: listOf()
+        val exlusiveChild = exclusiveChildren[node]
+        if(exlusiveChild != null) {
+            check(nonExclusiveChildren[node]!!.size == 0) // Make sure that there are no non-excluive children
+            return listOf(exlusiveChild)
+        }
+        return nonExclusiveChildren[node]!!.toList()
     }
 
     fun add(write: AtomicThreadEvent) {
@@ -626,32 +618,49 @@ class WritesBeforeGraph: Graph<AtomicThreadEvent> {
         _add(write)
         // Make the new event a child of the root, if it different
         setChild(root!!, write)
+
+        val label = write.label
+        // In the case of an exclusive write, we need to handle the
+        if(label is WriteAccessLabel && label.isExclusive) {
+            val readsFrom = write.exclusiveReadPart.readsFrom
+            _setExclusiveChild(readsFrom, write)
+        }
     }
 
-    fun setExclusiveChild(write1: AtomicThreadEvent, write2: AtomicThreadEvent) {
+    fun _setExclusiveChild(write1: AtomicThreadEvent, write2: AtomicThreadEvent) {
+        // This should get called only immediately after the write2 event is added!
         check(isWriteEvent(write1))
         check(isWriteEvent(write2))
         check(write1 in nodes) { "Write event $write1 - $root is not in the graph" }
         check(write2 in nodes) { "Write event $write2 - $root is not in the graph" }
         check(write1 != write2) { "Exclusive write reads from itself!"}
 
-        // For rmw events we need to make sure that write2 is also a child of any existing rmw
+        val chain = exclusiveChildren[write1]
+        // If we have already added this, then we skip
+        if(chain == write2) {
+            check(nonExclusiveChildren[write1]!!.size == 0)
+            return
+        };
 
-        children[write1]!!.add(write2)
-
-        for(exclusiveChild in children[write1]!!) {
-            if(!exclusiveChild.label.isExclusiveWriteAccess()) continue
-            if(exclusiveChild == write2) continue
-            children[exclusiveChild]!!.add(write2)
+        // If we have another event already, then we for sure have an rmw cycle and give up on life
+        if (chain != null) {
+            // We just give up with proper tracking and declare that a cycle has been found
+            rmwCycle = true
+            return
         }
 
-        // And if write2 is exclusive then we need to make sure that all existing children are also its children
-        if(write2.label.isExclusiveWriteAccess()) {
-            for(child in children[write1]!!) {
-                if(child == write2) continue
-                children[write2]!!.add(child)
-            }
-        }
+        exclusiveChildren[write1] = write2
+        // Extend the set of children of write2 to include the children of write 2
+        nonExclusiveChildren[write2]!! += nonExclusiveChildren[write1]!!.filter { it != write2 }
+        // Clear all children of write1, as they must appear after write2
+        nonExclusiveChildren[write1]!!.clear()
+    }
+
+
+    override fun toString(): String {
+        return "Graph:\n${nodes.map {
+            " ${it} -> ${adjacent(it).joinToString(",")}"
+        }.joinToString("\n")}"
     }
 
 }
