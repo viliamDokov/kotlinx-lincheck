@@ -205,7 +205,7 @@ fun MutableExtendedExecution(memoryModel: MemoryModel): MutableExtendedExecution
 
     override val memoryModelConsistencyOrder: Relation<AtomicThreadEvent> by memoryModelConsistencyOrderComputable
 
-    override val consistencyChecker = WritesBeforeChecker(memoryAccessEventIndex, memoryModel)
+    override val consistencyChecker = WritesBeforeChecker(this, memoryAccessEventIndex, memoryModel)
 
     private val trackers = listOf(
         memoryAccessEventIndex.incrementalTracker(),
