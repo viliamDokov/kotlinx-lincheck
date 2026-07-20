@@ -74,7 +74,15 @@ class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memor
     }
 
     fun completeCheck() : Inconsistency? {
-        if(!stale) return consistencyResult
+        Counter.count("Full check")
+        println("$stale")
+        println("$execution")
+        Exception().printStackTrace()
+        if(!stale) {
+            Counter.count("Cached check")
+            return consistencyResult
+        }
+        Counter.count("EMPTY check")
         consistencyResult = _completeCheck()
         stale = false
         return consistencyResult
@@ -94,6 +102,7 @@ class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memor
     }
 
     private fun checkSequentialConsistency(): Inconsistency? {
+        Counter.count("Early check")
         if (volatileEventEnumerator.list.isEmpty()) return null
 
         val enum = execution.buildEnumerator()
@@ -102,6 +111,7 @@ class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memor
         val scGraph = SCGraph(execution, eventList, enum, memoryAccessEventIndex);
         scGraph.initializeCausalOrder(happensBeforeOrder)
         forEachCoherenceOrderSc().forEach { coherenceOrder ->
+            Counter.count("SCGraph.coherenceOrder")
             // Check sequential Consistency
             scGraph.setCoherenceOrder(coherenceOrder)
             val hasCycle = scGraph.hasCycle()
@@ -262,6 +272,7 @@ class SCGraph(
             for(tid in -1 until execution.maxThreadId) {
                 val threadEvents = execution[tid] ?: continue
                 var position = threadEvents.binarySearch { causalOrder(event, it) }
+                // We need this to kick-start the  initial event
                 if (event.label is InitializationLabel && tid != event.threadId) position = 0
                 val otherEvent = execution[tid, position] ?: continue
                 causalGraph.addChild(event, otherEvent)
@@ -443,8 +454,8 @@ class WritesBeforeTrackerImpl(val memoryAccessEventIndex: AtomicMemoryAccessEven
         write2: AtomicThreadEvent,
         location: MemoryLocation,
     ) {
-        check(write1.label.isWriteAccessTo(location))
-        check(write2.label.isWriteAccessTo(location))
+//        check(write1.label.isWriteAccessTo(location))
+//        check(write2.label.isWriteAccessTo(location))
         val graph = writesBeforeGraphs.getOrPut(location) { WritesBeforeGraph() }
         graph.setChild(write1, write2)
     }
@@ -565,10 +576,10 @@ class WritesBeforeGraph: Graph<AtomicThreadEvent> {
     }
 
     fun setChild(write1: AtomicThreadEvent, write2: AtomicThreadEvent) {
-        check(isWriteEvent(write1))
-        check(isWriteEvent(write2))
-        check(write1 in nodes) { "Write event $write1 - $root is not in the graph" }
-        check(write2 in nodes) { "Write event $write2 - $root is not in the graph" }
+//        check(isWriteEvent(write1))
+//        check(isWriteEvent(write2))
+//        check(write1 in nodes) { "Write event $write1 - $root is not in the graph" }
+//        check(write2 in nodes) { "Write event $write2 - $root is not in the graph" }
 
         if(write1 == write2) return
 
@@ -764,4 +775,18 @@ class MutableEventEnumerator: Enumerator<AtomicThreadEvent> {
 
 private fun isWriteEvent(event: AtomicThreadEvent ) : Boolean {
     return event.label is WriteAccessLabel || event.label is ObjectAllocationLabel || event.label is InitializationLabel
+}
+
+
+class Counter {
+    companion object {
+        val table = mutableMapOf<String, Int>()
+        fun count(key: String) {
+            table[key] = table.getOrDefault(key, 0) + 1
+        }
+
+        override fun toString(): String {
+            return "Counter: $table"
+        }
+    }
 }

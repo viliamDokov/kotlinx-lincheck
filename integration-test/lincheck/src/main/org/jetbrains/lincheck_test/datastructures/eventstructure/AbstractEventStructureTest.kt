@@ -15,6 +15,7 @@ import org.junit.Test
 
 import org.jetbrains.kotlinx.lincheck.*
 import org.jetbrains.kotlinx.lincheck.strategy.*
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.Counter
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
 import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.lincheck.datastructures.StressOptions
@@ -31,6 +32,7 @@ abstract class AbstractEventStructureTest(
 
     private fun <O : Options<O, *>> O.runInternalTest() {
         val failure: LincheckFailure? = checkImpl(this@AbstractEventStructureTest::class.java)
+        println("${Counter}")
         if (failure === null) {
             assert(expectedFailures.isEmpty()) {
                 "This test should fail, but no error has been occurred (see the logs for details)"

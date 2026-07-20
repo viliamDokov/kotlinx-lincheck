@@ -228,6 +228,7 @@ internal class EventStructure(
         val pinnedEvents = backtrackingPoint.pinnedEvents.copy()
             .apply { set(event.threadId, event) }
         // add new event to current execution
+//        println("Resetting to $event -> ${event.senders.firstOrNull()}")
         _execution.add(event)
         // do the same for blocked requests
 

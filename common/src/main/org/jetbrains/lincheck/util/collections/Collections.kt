@@ -232,7 +232,7 @@ fun <T> Collection<T>.validateRangeBounds(fromIndex: Int, toIndex: Int) {
  * @throws IllegalArgumentException if [fromIndex] is greater than [toIndex].
  * @throws IndexOutOfBoundsException if [fromIndex] is negative or [toIndex] exceeds list size.
  */
-fun<T> List<T>.binarySearch(fromIndex: Int = 0, toIndex: Int = size, predicate: (T) -> Boolean): Int {
+inline fun<T> List<T>.binarySearch(fromIndex: Int = 0, toIndex: Int = size, predicate: (T) -> Boolean): Int {
     validateRangeBounds(fromIndex, toIndex)
 
     var low = fromIndex - 1
