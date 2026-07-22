@@ -3336,7 +3336,12 @@ class RC11JamTests {
 
     @Test
     fun testSkipListMapFailMini() {
-        val outcomes = setOf<List<Int>>()
+        val outcomes = setOf<List<Int>>(
+            listOf(1,1),
+            listOf(1,0),
+            listOf(0,1),
+            listOf(0,0),
+        )
         litmusTest(assertSame(outcomes), MemoryModel.JAM21) {
             val x = AtomicInteger(0);
             val flag = AtomicInteger(0);
