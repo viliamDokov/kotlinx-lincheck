@@ -37,12 +37,13 @@ import org.jetbrains.lincheck.util.collections.*
 import org.jetbrains.lincheck.jvm.agent.LincheckInstrumentation
 import org.jetbrains.lincheck.util.MemoryOrdering
 import sun.nio.ch.lincheck.ThreadDescriptor
+import kotlin.text.appendLine
 
 internal class EventStructureStrategy(
     runner: Runner,
     settings: ManagedStrategySettings,
     inIdeaPluginReplayMode: Boolean = false,
-    context: TraceContext,
+    private val context: TraceContext,
     val memoryModel : MemoryModel = MemoryModel.SequentialConsistency,
 ) : ManagedStrategy(runner, settings, inIdeaPluginReplayMode, context) {
 
@@ -132,6 +133,31 @@ internal class EventStructureStrategy(
         stats.update(result, inconsistency)
         return (result to inconsistency)
     }
+
+
+    fun dumpCurrentExecutionWithLocations() : String = buildString {
+        val execution = eventStructure.execution
+        appendLine("<======== Execution Graph @${hashCode()} ========>")
+        execution.threadIDs.toList().sorted().forEach { tid ->
+            val events = execution.threadMap[tid] ?: return@forEach
+            appendLine("[-------- Thread #${tid} --------]")
+            for (event in events) {
+                val memAccessLabel = event.label as? MemoryAccessLabel
+                val codeLocationID = memAccessLabel?.codeLocation
+                var locationStr = ""
+                if(codeLocationID != null && codeLocationID > -2) {
+                    val codeLocation = context.codeLocationsPool.get(codeLocationID).stackTraceElement
+                    locationStr = "${codeLocation.fileName}-${codeLocation.lineNumber}"
+                }
+
+                appendLine("${event.toString().padEnd(150, ' ')}$locationStr")
+                if (event.dependencies.isNotEmpty()) {
+                    appendLine("    dependencies: ${event.dependencies.joinToString()}}")
+                }
+            }
+        }
+    }
+
 
     // (OLD) TODO: temporarily disable trace collection for event structure strategy
     override fun tryCollectTrace(result: InvocationResult): Pair<Trace?, InvocationResult> {

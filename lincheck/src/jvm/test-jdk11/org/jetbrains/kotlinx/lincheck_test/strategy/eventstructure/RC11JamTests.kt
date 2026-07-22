@@ -3334,4 +3334,32 @@ class RC11JamTests {
         ) { 1 }
     }
 
+    @Test
+    fun testSkipListMapFailMini() {
+        val outcomes = setOf<List<Int>>()
+        litmusTest(assertSame(outcomes), MemoryModel.JAM21) {
+            val x = AtomicInteger(0);
+            val flag = AtomicInteger(0);
+
+            var r1 = -1;
+            var r2 = -1;
+
+            val t1 = thread {
+                x.setPlain(1)
+                flag.compareAndSet(0,1);
+            }
+
+            val t2 = thread {
+                VarHandle.acquireFence();
+                r1 = flag.getPlain();
+                r2 = x.getPlain();
+            }
+
+            t1.join();
+            t2.join();
+
+            listOf(r1, r2)
+        }
+    }
+
 }

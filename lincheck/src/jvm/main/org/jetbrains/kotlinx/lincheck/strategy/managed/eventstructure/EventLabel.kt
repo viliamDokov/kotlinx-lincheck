@@ -501,7 +501,7 @@ sealed class MemoryAccessLabel(
             if (isRead && kind != LabelKind.Request) "$readValue" else null,
             if (isWrite) "$writeValue" else null,
         ).joinToString()
-        return "${accessKind}${kind.repr}${exclString}(${argsString})"
+        return "${accessKind}${kind.repr}@$memoryOrdering${exclString}(${argsString})"
     }
 
 }

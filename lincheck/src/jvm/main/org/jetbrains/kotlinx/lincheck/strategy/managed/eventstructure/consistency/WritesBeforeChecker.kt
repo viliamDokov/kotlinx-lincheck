@@ -75,9 +75,6 @@ class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memor
 
     fun completeCheck() : Inconsistency? {
         Counter.count("Full check")
-        println("$stale")
-        println("$execution")
-        Exception().printStackTrace()
         if(!stale) {
             Counter.count("Cached check")
             return consistencyResult
@@ -590,7 +587,6 @@ class WritesBeforeGraph: Graph<AtomicThreadEvent> {
             parent = exclusiveChildren[parent]!!
             if(parent == write2) return // IF we encounter write2 along the way then we need to skip
         }
-
 
         nonExclusiveChildren[parent]!!.add(write2) // Add the child to the actual parent
     }
