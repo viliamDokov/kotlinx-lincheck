@@ -668,6 +668,12 @@ private class EventStructureMemoryTracker(
         expectedValue: Any?,
         newValue: Any?
     ) {
+        // Hacky way of downgrading the read portion of weak compare and set
+        val readMemoryOrder = if (memoryOrder == MemoryOrdering.RELEASE) {
+            MemoryOrdering.PLAIN
+        } else {
+            memoryOrder
+        }
         eventStructure.addReadRequest(iThread, codeLocation, location, memoryOrder,
             readModifyWriteDescriptor = ReadModifyWriteDescriptor.CompareAndSetDescriptor(
                 expectedValue = getValueID(location, expectedValue?.opaque()),
@@ -684,7 +690,14 @@ private class EventStructureMemoryTracker(
         expectedValue: Any?,
         newValue: Any?
     ) {
-        eventStructure.addReadRequest(iThread, codeLocation, location, memoryOrder,
+        // Hacky way of downgrading the read portion of weak compare and set
+        val readMemoryOrder = if (memoryOrder == MemoryOrdering.RELEASE) {
+            MemoryOrdering.PLAIN
+        } else {
+            memoryOrder
+        }
+
+        eventStructure.addReadRequest(iThread, codeLocation, location, readMemoryOrder,
             readModifyWriteDescriptor = ReadModifyWriteDescriptor.CompareAndExchangeDescriptor(
                 expectedValue = getValueID(location, expectedValue?.opaque()),
                 newValue = getValueID(location, newValue?.opaque()),

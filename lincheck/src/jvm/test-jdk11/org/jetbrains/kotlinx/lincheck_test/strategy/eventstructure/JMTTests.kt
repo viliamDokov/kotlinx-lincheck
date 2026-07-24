@@ -2944,7 +2944,6 @@ class JMTTests {
     }
 
     // RESULT: Sometimes
-    @Ignore // TODO: ATOMICS
     @Test
     fun test_release_sequence_rmw() {
         val expectedOutcomes: Set<Triple<Int, Int, Int>> = setOf(Triple(1, 2, 0))
