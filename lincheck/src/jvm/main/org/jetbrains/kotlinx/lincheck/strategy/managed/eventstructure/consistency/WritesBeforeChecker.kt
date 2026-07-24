@@ -89,7 +89,7 @@ class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memor
         val hasCycle = writesBeforeTracker.hasCycle()
         if(hasCycle) {
             // TODO: actually add a nicer class
-            return CoherenceViolation()
+            return ReleaseAcquireViolation()
         }
 
         if(memoryModel == MemoryModel.SequentialConsistency) return checkSequentialConsistency()
@@ -142,7 +142,7 @@ class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memor
             val sorting = topologicalSorting(graph)
             if(sorting != null) return null
         }
-        return CoherenceViolation()
+        return JamSequentialConsistencyViolation()
     }
 }
 
@@ -774,15 +774,16 @@ private fun isWriteEvent(event: AtomicThreadEvent ) : Boolean {
 }
 
 
-class Counter {
-    companion object {
-        val table = mutableMapOf<String, Int>()
-        fun count(key: String) {
-            table[key] = table.getOrDefault(key, 0) + 1
-        }
+class ReleaseAcquireViolation : Inconsistency() {
+    override fun toString(): String {
+        // TODO: Add information about the cycle if we care about that
+        return "Release acquire violation!"
+    }
+}
 
-        override fun toString(): String {
-            return "Counter: $table"
-        }
+class JamSequentialConsistencyViolation : Inconsistency() {
+    override fun toString(): String {
+        // TODO: Include the SCB cycle as well
+        return "JAM SC violation"
     }
 }

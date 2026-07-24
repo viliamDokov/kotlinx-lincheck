@@ -185,18 +185,27 @@ internal class EventStructureStrategy(
 
         private var seqCstReplayViolationCount: Int = 0
 
+        private var jamReleaseAcquireViolationCount: Int = 0
+
+        private var jamSequentialConsistencyViolationCount: Int = 0
+
         private val sequentialConsistencyViolationsCount: Int
             get() =
                 seqCstApproximationInconsistencyCount +
                 seqCstCoherenceViolationCount +
                 seqCstReplayViolationCount
 
+        private val jamViolationCount: Int
+            get() = jamSequentialConsistencyViolationCount + jamReleaseAcquireViolationCount
+
         val inconsistentInvocations: Int
             get() =
                 lockConsistencyViolationCount +
                 atomicityInconsistenciesCount +
                 relAcqInconsistenciesCount +
-                sequentialConsistencyViolationsCount
+                sequentialConsistencyViolationsCount +
+                jamViolationCount
+
 
         val totalInvocations: Int
             get() = consistentInvocations + inconsistentInvocations + blockedInvocations
@@ -219,6 +228,10 @@ internal class EventStructureStrategy(
                     seqCstCoherenceViolationCount++
                 is SequentialConsistencyReplayViolation ->
                     seqCstReplayViolationCount++
+                is ReleaseAcquireViolation ->
+                    jamReleaseAcquireViolationCount++
+                is JamSequentialConsistencyViolation ->
+                    jamSequentialConsistencyViolationCount++
             }
         }
 
@@ -234,6 +247,9 @@ internal class EventStructureStrategy(
                 #approx. phase   = $seqCstApproximationInconsistencyCount
                 #coher.  phase   = $seqCstCoherenceViolationCount
                 #replay  phase   = $seqCstReplayViolationCount
+            #JAM21 violations    = $jamViolationCount
+                   #ra  phase    = $jamReleaseAcquireViolationCount
+                   #sc  phase    = $jamSequentialConsistencyViolationCount
         """.trimIndent()
 
     }
