@@ -12,6 +12,7 @@ package org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consisten
 
 import org.jetbrains.kotlinx.lincheck.strategy.managed.*
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.*
+import org.jetbrains.kotlinx.lincheck.util.VectorClock
 import org.jetbrains.kotlinx.lincheck.util.observes
 import org.jetbrains.lincheck.util.Enumerator
 import org.jetbrains.lincheck.util.MemoryOrdering
@@ -86,6 +87,7 @@ class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memor
     }
 
     fun _completeCheck() : Inconsistency? {
+        Counter.countLocations(memoryAccessEventIndex)
         val hasCycle = writesBeforeTracker.hasCycle()
         if(hasCycle) {
             // TODO: actually add a nicer class
@@ -304,11 +306,7 @@ class SCGraph(
                 for(write2 in memoryAccessEventIndex.getWrites(location)) {
                     if(coherenceOrder(write1, write2)) ecoGraph.addChild(write1, write2)
                 }
-                // Add RR
-                for(read2 in memoryAccessEventIndex.getReadResponses(location)) {
-                    val write2 = read2.readsFrom
-                    if(coherenceOrder(write1, write2)) ecoGraph.addChild(write1, write2)
-                }
+                // We do not need to add RR edges!
             }
         }
     }
@@ -771,6 +769,41 @@ class MutableEventEnumerator: Enumerator<AtomicThreadEvent> {
 
 private fun isWriteEvent(event: AtomicThreadEvent ) : Boolean {
     return event.label is WriteAccessLabel || event.label is ObjectAllocationLabel || event.label is InitializationLabel
+}
+
+class Counter {
+    companion object {
+        val table = mutableMapOf<String, Int>()
+        val locationReadsTable = mutableMapOf<MemoryLocation, Int>()
+        val locationWritesTable = mutableMapOf<MemoryLocation, Int>()
+
+
+        fun count(key: String) {
+            table[key] = table.getOrDefault(key, 0) + 1
+        }
+
+        fun countLocations(memoryAccessEventIndex: AtomicMemoryAccessEventIndex) {
+            for(location in memoryAccessEventIndex.locations) {
+                locationReadsTable[location] = maxOf(locationReadsTable.getOrDefault(location, 0),  memoryAccessEventIndex.getReadResponses(location).size)
+                locationWritesTable[location] = maxOf(locationWritesTable.getOrDefault(location,0), memoryAccessEventIndex.getWrites(location).size)
+            }
+        }
+
+
+        fun printLocationTable(table: Map<MemoryLocation, Int>):  String {
+            return table.entries.toList().sortedByDescending { it.value }
+                .take(20).joinToString("\n") { "${it.key} -> ${it.value}" }
+        }
+
+        override fun toString(): String {
+            return (
+                "Counter:\n" +
+                "Points: $table\n" +
+                "Reads:\n${printLocationTable(locationReadsTable)}\n" +
+                "Writes:\n${printLocationTable(locationWritesTable)}"
+            )
+        }
+    }
 }
 
 

@@ -30,7 +30,6 @@ import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistenc
 import org.jetbrains.kotlinx.lincheck.trace.Trace
 import org.jetbrains.lincheck.descriptors.Types
 import org.jetbrains.lincheck.descriptors.getArrayElementType
-import org.jetbrains.lincheck.descriptors.getType
 import org.jetbrains.lincheck.trace.TraceContext
 import org.jetbrains.lincheck.util.*
 import org.jetbrains.lincheck.util.collections.*
@@ -130,6 +129,12 @@ internal class EventStructureStrategy(
             }
         }
 
+        println(dumpCurrentExecutionWithLocations())
+//        if(isInteresetingResult(result) && inconsistency == null) {
+//            println("INTERESTING EXECUTION")
+//            println("${dumpCurrentExecutionWithLocations()}")
+//        }
+
         stats.update(result, inconsistency)
         return (result to inconsistency)
     }
@@ -157,6 +162,21 @@ internal class EventStructureStrategy(
             }
         }
     }
+
+
+    private fun isInteresetingResult(result: InvocationResult?): Boolean {
+        if (result == null) return false;
+        val completedResult = result as? CompletedInvocationResult ?: return false
+
+        val res1 = (completedResult.results.parallelResults[0][0] as ValueResult).value as Int?
+        val res2 = (completedResult.results.parallelResults[0][1] as ValueResult).value as Int?
+        return res1 == null && res2 == null
+
+//        @Suppress("UNCHECKED_CAST")
+//        val res1 = (completedResult.results.parallelResults[0][0] as ValueResult).value as List<Int>
+//        return res1[0] == 1
+    }
+
 
 
     // (OLD) TODO: temporarily disable trace collection for event structure strategy
