@@ -3390,7 +3390,7 @@ class RC11JamTests {
         }
 
         val outcomes = setOf(null, 1)
-        litmusTest(TestClass::class.java, scenario, assertSame(outcomes), MemoryModel.JAM21, 10) { results ->
+        litmusTest(TestClass::class.java, scenario, assertSame(outcomes, UNKNOWN), MemoryModel.JAM21) { results ->
             val p1 = getValue<Int?>(results.parallelResults[1][0]!!)
             p1
         }
@@ -3417,7 +3417,7 @@ class RC11JamTests {
         }
 
         val outcomes = setOf(null, 1)
-        litmusTest(TestClass::class.java, scenario, assertSame(outcomes), MemoryModel.JAM21, 10) { results ->
+        litmusTest(TestClass::class.java, scenario, assertSame(outcomes, UNKNOWN), MemoryModel.JAM21) { results ->
             val p1 = getValue<Int?>(results.parallelResults[0][0]!!)
             p1
         }
@@ -3427,14 +3427,16 @@ class RC11JamTests {
     @Test
     fun testSpinLoop() {
         val outcomes = setOf<List<Int>>(
-            listOf(1)
+            listOf(42)
         )
 
-        litmusTest(assertSame(outcomes), MemoryModel.JAM21, 100) {
+        litmusTest(assertSame(outcomes, 11), MemoryModel.SequentialConsistency) {
             val x = AtomicInteger(0)
+            var r1 = -1
 
             val t1 = thread {
                 while(x.get() == 0) {}
+                r1 = x.get()
             }
 
             val t2 = thread {
@@ -3444,19 +3446,21 @@ class RC11JamTests {
             t1.join()
             t2.join()
 
-            1
+            listOf(r1)
         }
     }
 
     @Test
     fun testSpinLoop2() {
         val outcomes = setOf<List<Int>>(
-            listOf(1)
+            listOf(42)
         )
 
-        litmusTest(assertSame(outcomes), MemoryModel.SequentialConsistency, 10) {
+        // NOTE: execution count right now should be 1 + whatever the SPIN_BOUND is in [filterSpinLoopCandidates]
+        litmusTest(assertSame(outcomes, 11), MemoryModel.SequentialConsistency, 250) {
             val x = AtomicInteger(0)
-
+            val y = AtomicInteger(0)
+            var r1 = -1
 
             val t1 = thread {
                 x.set(42)
@@ -3464,12 +3468,13 @@ class RC11JamTests {
 
             val t2 = thread {
                 while (x.get() == 0) {}
+                r1 = x.get()
             }
 
             t1.join()
             t2.join()
 
-            1
+            listOf(r1)
         }
     }
 }

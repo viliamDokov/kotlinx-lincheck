@@ -30,6 +30,7 @@ import org.jetbrains.lincheck.util.collections.*
 
 
 internal class EventStructure(
+    private val loopIterationsBeforeSwitch: Int, // TODO: Hacky place, as the eventstructure should not handle loop detection
     private val memoryModel: MemoryModel,
     val memoryInitializer: MemoryInitializer,
     // TODO: refactor --- avoid using callbacks!
@@ -669,7 +670,8 @@ internal class EventStructure(
 //            }
 //
             label is ReadAccessLabel && label.isRequest -> {
-                filterReadSynchronizationCandidates(event, candidates)
+                val filteredCandidates = filterReadSynchronizationCandidates(event, candidates)
+                filterSpinLoopRevisitCandidates(event, filteredCandidates)
             }
 
             label is WriteAccessLabel -> {
@@ -711,6 +713,55 @@ internal class EventStructure(
 //            true
 //        }
 //    }
+
+    private fun filterSpinLoopRevisitCandidates(
+        originalRequest: AtomicThreadEvent,
+        candidates: Sequence<AtomicThreadEvent>
+    ): Sequence<AtomicThreadEvent> {
+        val label = originalRequest.label
+        check(label.isRequest)
+        check(label is ReadAccessLabel)
+
+        // If there are 5 consecutive reads to the same location with the same result, then we are probably in a spin loop
+        val maybeValidResponse = originalRequest.parent
+        if(!sl_isReadResponseToOriginalRequest(maybeValidResponse, label)) return candidates
+        var currResponse: AtomicThreadEvent? = maybeValidResponse!!
+        var i = 0;
+        val SPIN_BOUND = loopIterationsBeforeSwitch
+        while(currResponse != null) {
+            i++ // Now we have one more event to the same location that is not null
+            if(i >= SPIN_BOUND) break
+            currResponse = sl_getNextReadResponse(currResponse)
+        }
+        // we are not in a spin loop
+        if(i < SPIN_BOUND) return candidates
+
+        val spinLoopRepeatedWrite = currResponse!!.readsFrom
+        // Do not offer the same write value as a candidate
+        return candidates.filter { it != spinLoopRepeatedWrite }
+    }
+
+    private fun sl_isReadResponseToOriginalRequest(potentialResponse: AtomicThreadEvent?, originalRequestLabel: ReadAccessLabel): Boolean {
+        if (potentialResponse == null) return false
+        val potentialResponseLabel = potentialResponse.label as? ReadAccessLabel ?: return false
+        if(!potentialResponseLabel.isResponse) return false // This should always be true
+
+        return originalRequestLabel.location == potentialResponseLabel.location
+    }
+
+    private fun sl_getNextReadResponse(response: AtomicThreadEvent) :  AtomicThreadEvent? {
+        val label = response.label as ReadAccessLabel
+        check(label.isResponse)
+
+        val next = response.parent?.parent
+
+        val nextLabel = next?.label as? ReadAccessLabel ?: return null // The parent of the parent is a ReadAccessLabel
+        if(!nextLabel.isResponse) return null // It is also a read response
+        if(label.location != nextLabel.location) return null // To the same location
+        if(response.readsFrom != next.readsFrom) return null // Reading from the same event
+
+        return next
+    }
 
     private fun filterReadSynchronizationCandidates(event: ThreadEvent, candidates: Sequence<AtomicThreadEvent>) : Sequence<AtomicThreadEvent> {
         val label: ReadAccessLabel = event.label as ReadAccessLabel

@@ -53,7 +53,7 @@ internal class EventStructureStrategy(
     }
 
     private val eventStructure: EventStructure =
-        EventStructure( memoryModel, memoryInitializer, ::onInconsistency, ::getCurrentThreadId) { iThread, reason ->
+        EventStructure( settings.loopIterationsBeforeThreadSwitch, memoryModel, memoryInitializer, ::onInconsistency, ::getCurrentThreadId) { iThread, reason ->
             switchCurrentThread(iThread, reason)
         }
 
@@ -339,8 +339,9 @@ internal class EventStructureStrategy(
         if (threadToSwitch != null && eventStructure.inReplayPhase(threadToSwitch!!)) {
             return if (eventStructure.canReplayNextEvent(threadToSwitch!!))
                 false
-            else
+            else {
                 true
+            }
         }
 
         /* For event structure strategy enforcing context switches is not necessary,
@@ -582,6 +583,21 @@ internal class EventStructureStrategy(
             it.label.satisfies<CoroutineResumeLabel> { threadId == iThread && actorId == iActor }
         }
         return (resumeEvent != null)
+    }
+
+    override fun onLoopIteration(
+        threadDescriptor: ThreadDescriptor,
+        codeLocation: Int,
+        loopId: Int
+    ): Unit = threadDescriptor.runInsideIgnoredSection {
+
+        // Turn off the loop detector when replaying events, as revisits currently ignore
+        // the advice of the loop detector and just revisit stuff...
+        val threadId = threadScheduler.getCurrentThreadId()
+        val isReplay = eventStructure.inReplayPhase(threadId)
+        if (isReplay) return
+        super.onLoopIteration(threadDescriptor, codeLocation, loopId)
+
     }
 }
 
