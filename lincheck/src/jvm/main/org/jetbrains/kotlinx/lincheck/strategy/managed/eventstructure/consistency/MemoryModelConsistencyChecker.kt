@@ -60,6 +60,9 @@ class CoherenceViolation : SequentialConsistencyViolation() {
     }
 }
 
+// TODO: find a better place for this
+class LoopStuckViolation : Inconsistency() {}
+
 class IncrementalMemoryModelConsistencyChecker(
     execution: MutableExtendedExecution,
     memoryModel: MemoryModel,

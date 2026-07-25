@@ -30,7 +30,6 @@ class ObstructionFreedomViolationTest {
         .checkObstructionFreedom(true)
         .check(this::class)
 
-    @Ignore("Times out")
     @Test(expected = AssertionError::class)
     fun runEventStructureModelCheckingTest() = ModelCheckingOptions()
         .useExperimentalModelChecking()

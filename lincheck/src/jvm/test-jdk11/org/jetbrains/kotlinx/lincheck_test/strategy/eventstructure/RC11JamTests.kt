@@ -20,6 +20,7 @@
 
 package org.jetbrains.kotlinx.lincheck_test.strategy.eventstructure
 
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -29,6 +30,7 @@ import org.jetbrains.kotlinx.lincheck.execution.parallelResults
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
 import org.jetbrains.kotlinx.lincheck.util.CancelledResult
 import org.jetbrains.kotlinx.lincheck.util.SuspendedResult
+import org.jetbrains.kotlinx.lincheck_test.datastructures.MSQueueBlocking
 import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.lincheck.datastructures.Operation
 import org.jetbrains.lincheck.datastructures.scenario
@@ -3475,6 +3477,91 @@ class RC11JamTests {
             t2.join()
 
             listOf(r1)
+        }
+    }
+
+    @Ignore("We do not properly catch the deadlock error!")
+    @Test
+    fun testSimpleDeadLock() {
+        val outcomes = setOf<List<Int>>()
+
+        litmusTest(assertSame(outcomes)) {
+            val t1 = thread {
+                while(true) {}
+            }
+            val t2 = thread {
+                while(true) {}
+            }
+
+            t1.join()
+            t2.join()
+
+            1 // Should be unreachable as we are in a deadlock
+        }
+    }
+
+    @Ignore("We do not properly catch the deadlock error!")
+    @Test
+    fun testDiningPhilosophers() {
+        val outcomes = setOf(
+            listOf(1), listOf(2)
+        )
+
+        litmusTest(assertSame(outcomes, UNKNOWN)) {
+            val l1 = Object()
+            val l2 = Object()
+            var x = -1
+
+            val t1 = thread {
+                synchronized(l1) {
+                    synchronized(l2) {
+                        x = 1
+                    }
+                }
+            }
+
+            val t2 = thread {
+                synchronized(l2) {
+                    synchronized(l1) {
+                        x = 2
+                    }
+                }
+            }
+
+            t1.join()
+            t2.join()
+
+            x
+        }
+    }
+
+
+    @Test
+    fun MSqueueBlockingTest() {
+        class TestClass {
+            private val queue = MSQueueBlocking()
+            fun offer(x: Int) = queue.enqueue(x)
+            fun poll(): Int? = queue.dequeue()
+        }
+
+        val scenario = scenario {
+            parallel {
+                thread {
+                    actor(TestClass::offer, 1)
+                }
+                thread {
+                    actor(TestClass::offer, 2)
+                }
+            }
+            post {
+                actor(TestClass::poll)
+            }
+        }
+
+        val outcomes = setOf(1, 2)
+        litmusTest(TestClass::class.java, scenario, assertSame(outcomes, UNKNOWN), MemoryModel.JAM21, 1000) { results ->
+            val r1 = getValue<Int?>(results.postResults[0]!!)
+            r1
         }
     }
 }

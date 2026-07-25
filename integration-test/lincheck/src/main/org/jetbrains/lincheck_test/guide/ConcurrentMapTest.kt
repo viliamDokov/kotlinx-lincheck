@@ -10,6 +10,7 @@
 
 package org.jetbrains.lincheck_test.guide
 
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
 import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.lincheck.datastructures.Operation
 import org.junit.Ignore
@@ -47,7 +48,7 @@ class ConcurrentSkipListMapTest {
         .analyzeStdLib(true)
         .check(this::class)
 
-    @Ignore("Times out")
+    @Ignore("Times out, because our model checker is freaking slow...")
     @Test
     fun eventStrcutureModelCheckingTest() = ModelCheckingOptions()
         .checkObstructionFreedom(true)

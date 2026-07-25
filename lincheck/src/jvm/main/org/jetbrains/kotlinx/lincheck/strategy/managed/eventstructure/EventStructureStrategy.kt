@@ -585,19 +585,18 @@ internal class EventStructureStrategy(
         return (resumeEvent != null)
     }
 
-    override fun onLoopIteration(
-        threadDescriptor: ThreadDescriptor,
-        codeLocation: Int,
-        loopId: Int
-    ): Unit = threadDescriptor.runInsideIgnoredSection {
-
-        // Turn off the loop detector when replaying events, as revisits currently ignore
-        // the advice of the loop detector and just revisit stuff...
-        val threadId = threadScheduler.getCurrentThreadId()
+    override fun processLoopDetectorDecision(
+        decision: LoopDetector.Decision,
+        threadId: ThreadId,
+        loopId: Int,
+        codeLocation: Int
+    ) {
         val isReplay = eventStructure.inReplayPhase(threadId)
-        if (isReplay) return
-        super.onLoopIteration(threadDescriptor, codeLocation, loopId)
-
+        if(!isReplay) super.processLoopDetectorDecision(decision, threadId, loopId, codeLocation)
+        // If the current thread id is replayed then we filter out the execution as inconcistent
+        if(decision == LoopDetector.Decision.STUCK || decision == LoopDetector.Decision.SWITCH_THREAD) {
+            onInconsistency(LoopStuckViolation())
+        }
     }
 }
 
