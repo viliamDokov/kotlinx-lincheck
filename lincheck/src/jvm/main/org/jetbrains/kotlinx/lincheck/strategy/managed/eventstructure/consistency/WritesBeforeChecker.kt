@@ -12,19 +12,26 @@ package org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consisten
 
 import org.jetbrains.kotlinx.lincheck.strategy.managed.*
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.*
+import org.jetbrains.kotlinx.lincheck.util.MutableThreadMap
 import org.jetbrains.kotlinx.lincheck.util.VectorClock
+import org.jetbrains.kotlinx.lincheck.util.mutableThreadMapOf
 import org.jetbrains.kotlinx.lincheck.util.observes
+import org.jetbrains.kotlinx.lincheck.util.threadIds
 import org.jetbrains.lincheck.util.Enumerator
 import org.jetbrains.lincheck.util.MemoryOrdering
 import org.jetbrains.lincheck.util.Relation
+import org.jetbrains.lincheck.util.collections.SortedArrayList
+import org.jetbrains.lincheck.util.collections.SortedMutableList
 import org.jetbrains.lincheck.util.collections.binarySearch
 import org.jetbrains.lincheck.util.collections.cartesianProduct
+import org.jetbrains.lincheck.util.implies
 import org.jetbrains.lincheck.util.unreachable
 
 class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memoryAccessEventIndex: AtomicMemoryAccessEventIndex, val memoryModel: MemoryModel): ExtendedExecutionTracker {
 
     private val volatileEventEnumerator = MutableEventEnumerator()
-    val writesBeforeTracker = WritesBeforeTrackerImpl(memoryAccessEventIndex)
+    val writesHBTracker = WritesHBTracker()
+    val writesBeforeTracker = WritesBeforeTrackerImpl(memoryAccessEventIndex, writesHBTracker)
     val exclusiveWrites = mutableListOf<AtomicThreadEvent>()
 
     var stale: Boolean = true
@@ -39,6 +46,8 @@ class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memor
         val label = event.label as? MemoryAccessLabel ?: return
         // If not write or read response, then we skip
         if (!(label.isWrite || label.isResponse)) return
+        writesHBTracker.addMemoryAccessEvent(event)
+
         //  Make sure that the cached result is not stale
         stale = true
         if(label.isExclusive) trackRMWEvent(event)
@@ -61,17 +70,20 @@ class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memor
 
     override fun onReset(execution: MutableExtendedExecution) {
         stale = true
-        writesBeforeTracker.onReset(execution)
         // Update the volatiles and exclusive writes
         exclusiveWrites.clear()
         volatileEventEnumerator.clear()
+        writesHBTracker.clear()
         execution.forEach { event ->
-            val label = event.label
-            if(!(label is MemoryAccessLabel && (label.isWrite || label.isResponse))) return@forEach
+            if(!eventIsMemoryAccessLabel(event)) return@forEach
+            val label = event.label as MemoryAccessLabel
+            writesHBTracker.addMemoryAccessEvent(event)
+
             if(label.isExclusive) trackRMWEvent(event)
             if(label.memoryOrdering == MemoryOrdering.VOLATILE) trackVolaitleEvent(event)
         }
 
+        writesBeforeTracker.onReset(execution)
     }
 
     fun completeCheck() : Inconsistency? {
@@ -438,9 +450,13 @@ interface WritesBeforeTracker {
     fun onReset(execution: Execution<AtomicThreadEvent>)
 }
 
-fun WritesBeforeTracker(memoryAccessEventIndex: AtomicMemoryAccessEventIndex): WritesBeforeTracker = WritesBeforeTrackerImpl(memoryAccessEventIndex)
+fun WritesBeforeTracker(
+    memoryAccessEventIndex: AtomicMemoryAccessEventIndex,
+    writesHBTracker: WritesHBTracker
+): WritesBeforeTracker
+    = WritesBeforeTrackerImpl(memoryAccessEventIndex, writesHBTracker)
 
-class WritesBeforeTrackerImpl(val memoryAccessEventIndex: AtomicMemoryAccessEventIndex) : WritesBeforeTracker {
+class WritesBeforeTrackerImpl(val memoryAccessEventIndex: AtomicMemoryAccessEventIndex, val writesHBTracker: WritesHBTracker) : WritesBeforeTracker {
 
     val writesBeforeGraphs: MutableMap<MemoryLocation, WritesBeforeGraph> = mutableMapOf()
 
@@ -498,18 +514,10 @@ class WritesBeforeTrackerImpl(val memoryAccessEventIndex: AtomicMemoryAccessEven
         graph.add(writeEvent)
 
 
-        // Assumes that we handle the allocation event explicitly
-        for(otherWrite in memoryAccessEventIndex.getWrites(location)) {
-            if(happensBeforeOrder(otherWrite, event)) {
-                _setWritesBefore(otherWrite, writeEvent, location)
-            }
+        for(write in writesHBTracker.getWritesBeforeCandidateWrites(event)) {
+            _setWritesBefore(write, writeEvent, location)
         }
 
-        for(otherRead in memoryAccessEventIndex.getReadResponses(location)) {
-            if(happensBeforeOrder(otherRead, event)) {
-                _setWritesBefore(otherRead.readsFrom, writeEvent, location)
-            }
-        }
     }
 }
 
@@ -818,5 +826,89 @@ class JamSequentialConsistencyViolation : Inconsistency() {
     override fun toString(): String {
         // TODO: Include the SCB cycle as well
         return "JAM SC violation"
+    }
+}
+
+
+class WritesHBTracker {
+
+    class WritesHBTrackerLocation {
+        val positions: MutableThreadMap<SortedMutableList<Int>> = mutableThreadMapOf()
+        val events: MutableThreadMap<MutableList<AtomicThreadEvent>> = mutableThreadMapOf()
+
+        fun add(threadId: Int, threadPosition: Int, write: AtomicThreadEvent) {
+            val positionList = positions.getOrPut(threadId, { SortedArrayList() })
+            val eventList = events.getOrPut(threadId, { mutableListOf() })
+            check(positionList.size == eventList.size)
+
+            val lastPosition = positionList.lastOrNull() ?: -1
+            check(lastPosition < threadPosition)
+            positionList.add(threadPosition)
+            eventList.add(write)
+        }
+
+        fun frontierObservedByClock(eventThreadId: Int, clock: VectorClock): Iterable<AtomicThreadEvent> {
+            return clock.threadIds().mapNotNull { tid ->
+                val positionList = positions[tid]
+                if (positionList == null) return@mapNotNull null
+                check(positionList.size != 0)
+
+                var observedThreadPosition = clock[tid]
+                if (observedThreadPosition == -1) return@mapNotNull null
+                if (eventThreadId == tid) observedThreadPosition-- // Note: weird decrement so we do not see the write that was added right now
+
+                var eventIdx = positionList.binarySearch(observedThreadPosition)
+                if (eventIdx < 0)  eventIdx = -eventIdx - 2
+
+                if (eventIdx == -1) return@mapNotNull null
+                check(positionList[eventIdx] <= observedThreadPosition)
+                val event = events[tid]!![eventIdx]
+
+                event
+            }
+        }
+
+    }
+
+    val locationMap: MutableMap<MemoryLocation, WritesHBTrackerLocation> = mutableMapOf()
+    var allocationAdded : MutableSet<MemoryLocation>  = mutableSetOf()
+
+    fun addMemoryAccessEvent(event: AtomicThreadEvent) {
+        val label = event.label
+        check(eventIsMemoryAccessLabel(event))
+
+        val location = (label as MemoryAccessLabel).location
+        val map = locationMap.getOrPut(location) { WritesHBTrackerLocation() }
+
+
+        val allocation = event.allocation!!
+        if(location !in allocationAdded) {
+            map.add(allocation.threadId, allocation.threadPosition, allocation)
+            allocationAdded.add(location)
+        }
+
+        val write = when (label) {
+            is WriteAccessLabel -> event
+            is ReadAccessLabel -> event.readsFrom
+            else -> unreachable()
+        }
+
+        map.add(event.threadId, event.threadPosition, write)
+    }
+
+    fun getWritesBeforeCandidateWrites(event: AtomicThreadEvent): Iterable<AtomicThreadEvent> {
+        val label = event.label
+        check(eventIsMemoryAccessLabel(event))
+
+        val location = (label as MemoryAccessLabel).location
+        // NOTE: assumes the event in question is a memory access event that has already been added
+        val map = locationMap[location]!!
+
+        return map.frontierObservedByClock(event.threadId, event.happensBeforeClock)
+    }
+
+    fun clear() {
+        locationMap.clear()
+        allocationAdded.clear()
     }
 }

@@ -129,7 +129,7 @@ internal class EventStructureStrategy(
             }
         }
 
-        println(dumpCurrentExecutionWithLocations())
+//        println(dumpCurrentExecutionWithLocations())
 //        if(isInteresetingResult(result) && inconsistency == null) {
 //            println("INTERESTING EXECUTION")
 //            println("${dumpCurrentExecutionWithLocations()}")

@@ -34,7 +34,7 @@ class EConcurrentHashMapTest : AbstractEventStructureTest() {
     fun remove(@Param(name = "key") key: Int) = map.remove(key)
 
     override fun <O : Options<O, *>> O.customize() {
-        invocationsPerIteration(5000)
+        invocationsPerIteration(10000)
         if (this is ModelCheckingOptions) {
 
 //        Generated execution8:
