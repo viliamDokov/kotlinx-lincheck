@@ -30,5 +30,5 @@ class EHashMapTest : AbstractEventStructureTest(IncorrectResultsFailure::class, 
     operator fun get(@Param(name = "key") key: Int?): Int? = m[key]
 
     @Test(timeout = TIMEOUT)
-    fun test() = testWithEventStructureStrategy()
+    fun testWithEventStructureStrategy() = _testWithEventStructureStrategy()
 }

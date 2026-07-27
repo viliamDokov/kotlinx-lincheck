@@ -11,18 +11,14 @@
 package org.jetbrains.lincheck_test.datastructures.eventstructure
 
 import org.jetbrains.kotlinx.lincheck.strategy.LincheckFailure
-import org.junit.Test
 
 import org.jetbrains.kotlinx.lincheck.*
-import org.jetbrains.kotlinx.lincheck.strategy.*
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.Counter
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
 import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
-import org.jetbrains.lincheck.datastructures.StressOptions
 import org.jetbrains.kotlinx.lincheck_test.util.*
 import org.jetbrains.lincheck.datastructures.Options
-import org.junit.*
-import org.junit.Assume.assumeTrue
+import org.junit.Ignore
 import kotlin.reflect.*
 
 abstract class AbstractEventStructureTest(
@@ -46,7 +42,7 @@ abstract class AbstractEventStructureTest(
         }
     }
 
-    fun testWithEventStructureStrategy() : Unit = ModelCheckingOptions().run {
+    fun _testWithEventStructureStrategy() : Unit = ModelCheckingOptions().run {
         invocationsPerIteration(1_000)
         useExperimentalModelChecking()
         memoryModel(MemoryModel.JAM21)

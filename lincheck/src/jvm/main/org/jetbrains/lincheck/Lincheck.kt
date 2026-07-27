@@ -18,13 +18,15 @@ import org.jetbrains.kotlinx.lincheck.execution.ExecutionScenario
 import org.jetbrains.kotlinx.lincheck.execution.parallelResults
 import org.jetbrains.kotlinx.lincheck.runner.LambdaRunner
 import org.jetbrains.kotlinx.lincheck.strategy.managed.ManagedStrategy
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.EventStructureStrategy
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
 import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.kotlinx.lincheck.strategy.managed.modelchecking.ModelCheckingStrategy
 import org.jetbrains.kotlinx.lincheck.strategy.runIteration
 import org.jetbrains.lincheck.jvm.agent.InstrumentationMode
 import org.jetbrains.lincheck.jvm.agent.LincheckInstrumentation.ensureObjectIsTransformed
 import org.jetbrains.lincheck.jvm.agent.withLincheckJavaAgent
-import org.jetbrains.lincheck.datastructures.ManagedCTestConfiguration
+import org.jetbrains.lincheck.datastructures.ModelCheckingCTestConfiguration
 import org.jetbrains.lincheck.datastructures.verifier.Verifier
 import org.jetbrains.lincheck.jvm.agent.LincheckInstrumentation
 import sun.nio.ch.lincheck.Injections
@@ -81,15 +83,15 @@ object Lincheck {
         withLincheckTestContext(testCfg.instrumentationMode) {
             ensureObjectIsTransformed(block)
             val verifier = NoExceptionVerifier()
-            testCfg.createStrategy(block).use { strategy ->
+            testCfg.createLambdaStrategy(block).use { strategy ->
                 val failure = strategy.runIteration(invocations, verifier)
                 if (failure != null) {
-                    check(strategy is ModelCheckingStrategy)
-                    if (ideaPluginEnabled) {
+//                    check(strategy is ManagedStrategy)
+                    if (ideaPluginEnabled && strategy is ModelCheckingStrategy) {
                         testCfg.enableReplayModeForIdeaPlugin()
                         runPluginReplay(
                             failure = failure,
-                            replayStrategy = testCfg.createStrategy(block),
+                            replayStrategy = testCfg.createLambdaStrategy(block),
                             invocations = invocations,
                             verifier = verifier,
                         )
@@ -100,10 +102,27 @@ object Lincheck {
         }
     }
 
-    private fun ManagedCTestConfiguration.createStrategy(block: Runnable): ManagedStrategy {
+    private fun ModelCheckingCTestConfiguration.createLambdaStrategy(block: Runnable): ManagedStrategy {
         val runner = LambdaRunner(timeoutMs = timeoutMs, block)
-        return ModelCheckingStrategy(runner, createSettings(), inIdeaPluginReplayMode, LincheckInstrumentation.context).also {
-            runner.initializeStrategy(it)
+        if (useExperimentalModelChecking) {
+            return EventStructureStrategy(
+                runner,
+                createSettings(),
+                inIdeaPluginReplayMode,
+                LincheckInstrumentation.context,
+                MemoryModel.SequentialConsistency,
+            ).also {
+                runner.initializeStrategy(it)
+            }
+        } else {
+            return ModelCheckingStrategy(
+                runner,
+                createSettings(),
+                inIdeaPluginReplayMode,
+                LincheckInstrumentation.context
+            ).also {
+                runner.initializeStrategy(it)
+            }
         }
     }
 

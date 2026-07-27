@@ -38,7 +38,7 @@ class SingleWriterHashTableTest() {
 
 
     @Test(timeout = TIMEOUT, expected = AssertionError::class)
-    fun eventStructureModelCheckingTest() = ModelCheckingOptions()
+    fun testWithEventStructureStrategy() = ModelCheckingOptions()
         .useExperimentalModelChecking()
         .memoryModel(MemoryModel.JAM21)
         .iterations(scenarios)

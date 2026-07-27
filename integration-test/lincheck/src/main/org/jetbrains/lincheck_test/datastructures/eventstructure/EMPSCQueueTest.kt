@@ -10,36 +10,35 @@
 
 package org.jetbrains.lincheck_test.datastructures.eventstructure
 
+import org.jctools.queues.atomic.MpscLinkedAtomicQueue
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
 import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.lincheck.datastructures.Operation
 import org.jetbrains.lincheck.datastructures.StressOptions
+import org.junit.Ignore
 import org.junit.Test
-import java.util.*
-import java.util.concurrent.ConcurrentLinkedQueue
 
-class ConcurrentLinkedQueueTest {
-    private val s = ConcurrentLinkedQueue<Int>()
+class EMPSCQueueTest {
+    private val queue = MpscLinkedAtomicQueue<Int>()
 
     @Operation
-    fun add(value: Int) = s.add(value)
+    public fun offer(x: Int) = queue.offer(x)
 
-    @Operation
-    fun poll(): Int? = s.poll()
+    @Operation(nonParallelGroup = "consumers")
+    public fun poll(): Int? = queue.poll()
+
+    @Operation(nonParallelGroup = "consumers")
+    public fun peek(): Int? = queue.peek()
+
+    @Test
+    fun stressTest() = StressOptions().check(this::class)
+
+    @Test
+    fun modelCheckingTest() = ModelCheckingOptions().check(this::class)
 
     @Test
     fun testWithEventStructureStrategy() = ModelCheckingOptions()
         .useExperimentalModelChecking()
-        .iterations(10)
         .memoryModel(MemoryModel.JAM21)
-        .invocationsPerIteration(100)
-        .sequentialSpecification(SequentialQueue::class.java)
         .check(this::class)
-}
-
-class SequentialQueue {
-    private val q = LinkedList<Int>()
-
-    fun add(x: Int) = q.add(x)
-    fun poll(): Int? = q.poll()
 }

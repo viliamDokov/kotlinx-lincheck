@@ -11,36 +11,28 @@
 package org.jetbrains.lincheck_test.datastructures.eventstructure
 
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
+import org.jetbrains.kotlinx.lincheck_test.datastructures.*
 import org.jetbrains.lincheck.datastructures.*
-import java.util.concurrent.*
 import org.junit.*
 
-class EConcurrentLinkedDequeTest {
-    private val deque = ConcurrentLinkedDeque<Int>()
+class EObstructionFreedomViolationTest {
+    private val q = MSQueueBlocking()
 
     @Operation
-    fun addFirst(e: Int) = deque.addFirst(e)
+    fun enqueue(x: Int) = q.enqueue(x)
 
     @Operation
-    fun addLast(e: Int) = deque.addLast(e)
+    fun dequeue(): Int? = q.dequeue()
 
-    @Operation
-    fun pollFirst() = deque.pollFirst()
-
-    @Operation
-    fun pollLast() = deque.pollLast()
-
-    @Operation
-    fun peekFirst() = deque.peekFirst()
-
-    @Operation
-    fun peekLast() = deque.peekLast()
+    @Test(expected = AssertionError::class)
+    fun runModelCheckingTest() = ModelCheckingOptions()
+        .checkObstructionFreedom(true)
+        .check(this::class)
 
     @Test(expected = AssertionError::class)
     fun testWithEventStructureStrategy() = ModelCheckingOptions()
         .useExperimentalModelChecking()
         .memoryModel(MemoryModel.JAM21)
-        .iterations(25)
-        .invocationsPerIteration(200)
+        .checkObstructionFreedom(true)
         .check(this::class)
 }

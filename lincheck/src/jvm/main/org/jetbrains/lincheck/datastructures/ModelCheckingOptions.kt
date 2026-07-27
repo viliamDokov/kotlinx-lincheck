@@ -125,10 +125,10 @@ class ModelCheckingCTestConfiguration(
     awaitLoopsAnalysisEnabled = awaitLoopsAnalysisEnabled,
 ) {
 
-    private val useExperimentalModelChecking =
+    val useExperimentalModelChecking =
         experimentalModelChecking || System.getProperty("lincheck.useExperimentalModelChecking")?.toBoolean() ?: false
 
-    private val memoryModel: MemoryModel =
+    val memoryModel: MemoryModel =
         memoryModel ?: System.getProperty("lincheck.memoryModel")?.toMemoryModel() ?: MemoryModel.SequentialConsistency
 
     override val instrumentationMode: InstrumentationMode get() =

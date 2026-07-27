@@ -31,7 +31,7 @@ class FaaQueueTest : AbstractEventStructureTest(IncorrectResultsFailure::class) 
     fun enqueue(x: Int) = faaQueue.enqueue(x)
 
      @Test(timeout = TIMEOUT)
-     fun test() = testWithEventStructureStrategy()
+     fun testWithEventStructureStrategy() = _testWithEventStructureStrategy()
 
     override fun <O : Options<O, *>> O.customize() {
         if (this is StressOptions) {

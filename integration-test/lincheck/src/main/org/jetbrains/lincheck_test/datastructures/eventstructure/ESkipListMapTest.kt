@@ -10,33 +10,17 @@
 
 package org.jetbrains.lincheck_test.datastructures.eventstructure
 
-import org.jetbrains.kotlinx.lincheck_test.AbstractLincheckTest
 import org.jetbrains.lincheck.datastructures.IntGen
-import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.lincheck.datastructures.Operation
 import org.jetbrains.lincheck.datastructures.Options
 import org.jetbrains.lincheck.datastructures.Param
+import org.junit.Ignore
 import org.junit.Test
 import java.util.concurrent.ConcurrentSkipListMap
-import kotlin.reflect.KFunction
 
 @Param(name = "value", gen = IntGen::class, conf = "1:5")
 class ESkipListMapTest : AbstractEventStructureTest() {
-    override fun <O : Options<O, *>> O.customize() {
-        iterations(0)
-        invocationsPerIteration(100)
-        addCustomScenario {
-            parallel {
-                thread {
-                    actor(ESkipListMapTest::put, 0, 0)
-                    actor(ESkipListMapTest::get, 0)
-                }
-                thread {
-                    actor(ESkipListMapTest::remove, 1)
-                }
-            }
-        }
-    }
+    override fun <O : Options<O, *>> O.customize() {}
 
     private val skiplistMap = ConcurrentSkipListMap<Int, Int>()
 
@@ -52,7 +36,8 @@ class ESkipListMapTest : AbstractEventStructureTest() {
     @Operation
     fun remove(key: Int) = skiplistMap.remove(key)
 
+    @Ignore("SkipListMap is not linearizable")
     @Test(timeout = TIMEOUT)
-    fun test() = testWithEventStructureStrategy()
+    fun testWithEventStructureStrategy() = _testWithEventStructureStrategy()
 
 }

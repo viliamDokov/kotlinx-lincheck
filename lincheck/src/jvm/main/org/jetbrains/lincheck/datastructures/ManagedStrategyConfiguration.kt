@@ -13,6 +13,7 @@ package org.jetbrains.lincheck.datastructures
 import org.jetbrains.kotlinx.lincheck.execution.ExecutionGenerator
 import org.jetbrains.kotlinx.lincheck.execution.ExecutionScenario
 import org.jetbrains.kotlinx.lincheck.strategy.managed.ManagedStrategySettings
+import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
 import org.jetbrains.lincheck.datastructures.verifier.Verifier
 import org.jetbrains.lincheck.util.AnalysisProfile
 

@@ -11,7 +11,6 @@
 package org.jetbrains.lincheck_test.datastructures.eventstructure
 
 import org.jetbrains.lincheck.datastructures.Operation
-import org.jetbrains.kotlinx.lincheck_test.*
 import org.jetbrains.lincheck.datastructures.Options
 import org.jetbrains.lincheck.datastructures.verifier.SerializabilityVerifier
 import org.junit.Test
@@ -35,7 +34,7 @@ class SerializableQueueTest : AbstractEventStructureTest() {
     }
 
     @Test(timeout = TIMEOUT)
-    fun test() = testWithEventStructureStrategy()
+    fun testWithEventStructureStrategy() = _testWithEventStructureStrategy()
 
 }
 

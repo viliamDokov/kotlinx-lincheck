@@ -593,7 +593,7 @@ internal class EventStructureStrategy(
     ) {
         val isReplay = eventStructure.inReplayPhase(threadId)
         if(!isReplay) super.processLoopDetectorDecision(decision, threadId, loopId, codeLocation)
-        // If the current thread id is replayed then we filter out the execution as inconcistent
+        // If the current thread id is replayed then we filter out the execution as inconsistent
         if(decision == LoopDetector.Decision.STUCK || decision == LoopDetector.Decision.SWITCH_THREAD) {
             onInconsistency(LoopStuckViolation())
         }

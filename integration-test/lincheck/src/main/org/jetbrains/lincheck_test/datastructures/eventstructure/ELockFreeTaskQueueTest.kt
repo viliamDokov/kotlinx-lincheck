@@ -10,7 +10,6 @@
 
 package org.jetbrains.lincheck_test.datastructures.eventstructure
 
-import org.jetbrains.kotlinx.lincheck_test.AbstractLincheckTest
 import org.jetbrains.lincheck.datastructures.IntGen
 import org.jetbrains.lincheck.datastructures.Operation
 import org.jetbrains.lincheck.datastructures.Options
@@ -43,5 +42,5 @@ class ELockFreeTaskQueueTest : AbstractEventStructureTest() {
     }
 
     @Test(timeout = TIMEOUT)
-    fun test() = testWithEventStructureStrategy()
+    fun testWithEventStructureStrategy() = _testWithEventStructureStrategy()
 }
