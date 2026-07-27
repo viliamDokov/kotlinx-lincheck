@@ -125,7 +125,7 @@ class TrustTests {
             }
         }
 
-        litmusTest(LastZero::class.java, testScenario, assertSame(setOf(Unit), 32768)) { }
+        litmusTest(LastZero::class.java, testScenario, assertSame(setOf(Unit), 32768), MemoryModel.SequentialConsistency, 100_000) {}
     }
 
     @Test
@@ -165,12 +165,162 @@ class TrustTests {
             }
         }
 
-        litmusTest(LastZero::class.java, testScenario, assertSame(setOf(Unit), 147456)) { }
+        litmusTest(LastZero::class.java, testScenario, assertSame(setOf(Unit), 147456), MemoryModel.SequentialConsistency, 200_000) {}
+    }
+
+    @Test
+    fun testExpMem_7() {
+        litmusTest(assertSame(setOf(1), 10_080), MemoryModel.SequentialConsistency, 20_000) {
+            val x = AtomicInteger(0);
+            val y = AtomicInteger(0);
+
+            val t = thread {
+                val r = x.getAndIncrement()
+            }
+            val t1 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t2 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t3 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t4 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t5 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t6 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t7 = thread {
+                val r = y.getAndIncrement()
+            }
+
+            t1.join()
+            t2.join()
+            t3.join()
+            t4.join()
+            t5.join()
+            t6.join()
+            t7.join()
+
+            val r = x.getAndIncrement()
+
+            t.join()
+            1
+        }
+    }
+
+    @Test
+    fun testExpMem_8() {
+        litmusTest(assertSame(setOf(1), 80_640), MemoryModel.SequentialConsistency, 100_000) {
+            val x = AtomicInteger(0);
+            val y = AtomicInteger(0);
+
+            val t = thread {
+                val r = x.getAndIncrement()
+            }
+            val t1 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t2 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t3 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t4 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t5 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t6 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t7 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t8 = thread {
+                val r = y.getAndIncrement()
+            }
+
+            t1.join()
+            t2.join()
+            t3.join()
+            t4.join()
+            t5.join()
+            t6.join()
+            t7.join()
+            t8.join()
+
+            val r = x.getAndIncrement()
+
+            t.join()
+            1
+        }
+    }
+
+    @Test
+    fun testExpMem_9() {
+        litmusTest(assertSame(setOf(1), 725_760), MemoryModel.SequentialConsistency, 1_000_000) {
+            val x = AtomicInteger(0);
+            val y = AtomicInteger(0);
+
+            val t = thread {
+                val r = x.getAndIncrement()
+            }
+            val t1 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t2 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t3 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t4 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t5 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t6 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t7 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t8 = thread {
+                val r = y.getAndIncrement()
+            }
+            val t9 = thread {
+                val r = y.getAndIncrement()
+            }
+
+            t1.join()
+            t2.join()
+            t3.join()
+            t4.join()
+            t5.join()
+            t6.join()
+            t7.join()
+            t8.join()
+            t9.join()
+
+            val r = x.getAndIncrement()
+
+            t.join()
+            1
+        }
     }
 
     @Test
     fun testExpMem2_4() {
-        litmusTest(assertSame(setOf(1), 3637)) {
+        litmusTest(assertSame(setOf(1), 3637), MemoryModel.SequentialConsistency, 1_000_000) {
             val x = AtomicInteger(0);
 
             val t1 = thread {
@@ -209,7 +359,7 @@ class TrustTests {
 
     @Test
     fun testExpMem2_5() {
-        litmusTest(assertSame(setOf(1), 52906)) {
+        litmusTest(assertSame(setOf(1), 52906), MemoryModel.SequentialConsistency, 1_000_000) {
             val x = AtomicInteger(0);
 
             val t1 = thread {
@@ -252,7 +402,7 @@ class TrustTests {
     }
     @Test
     fun testExpMem2_6() {
-        litmusTest(assertSame(setOf(1), 916855)) {
+        litmusTest(assertSame(setOf(1), 916855), MemoryModel.SequentialConsistency, 1_000_000) {
             val x = AtomicInteger(0);
 
             val t1 = thread {
