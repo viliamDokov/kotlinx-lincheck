@@ -183,7 +183,7 @@ abstract class ManagedCTestConfiguration(
     companion object {
         const val DEFAULT_CHECK_OBSTRUCTION_FREEDOM = false
 
-        const val DEFAULT_LOOP_ITERATIONS_BEFORE_THREAD_SWITCH = 10
+        const val DEFAULT_LOOP_ITERATIONS_BEFORE_THREAD_SWITCH = 20
         const val DEFAULT_LOOP_BOUND = 50
         const val DEFAULT_RECURSION_BOUND = 20
 
