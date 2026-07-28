@@ -61,7 +61,7 @@ abstract class AbstractEventStructureTest(
         runInternalTest()
     }
 
-    fun _testWithModelCheckingStrategy() : Unit = StressOptions().run {
+    fun _testWithModelCheckingStrategy() : Unit = ModelCheckingOptions().run {
         commonConfiguration()
         runInternalTest()
     }
