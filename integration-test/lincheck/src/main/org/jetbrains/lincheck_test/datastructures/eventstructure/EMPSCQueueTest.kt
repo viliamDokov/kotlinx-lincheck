@@ -18,7 +18,7 @@ import org.jetbrains.lincheck.datastructures.StressOptions
 import org.junit.Ignore
 import org.junit.Test
 
-class EMPSCQueueTest {
+class EMPSCQueueTest: AbstractEventStructureTest() {
     private val queue = MpscLinkedAtomicQueue<Int>()
 
     @Operation
@@ -30,15 +30,12 @@ class EMPSCQueueTest {
     @Operation(nonParallelGroup = "consumers")
     public fun peek(): Int? = queue.peek()
 
-    @Test
-    fun stressTest() = StressOptions().check(this::class)
-
-    @Test
-    fun modelCheckingTest() = ModelCheckingOptions().check(this::class)
-
-    @Test
-    fun testWithEventStructureStrategy() = ModelCheckingOptions()
-        .useExperimentalModelChecking()
-        .memoryModel(MemoryModel.JAM21)
-        .check(this::class)
+    @Test(timeout = TIMEOUT)
+    fun testWithEventStructureStrategyJAM() = _testWithEventStructureStrategyJAM()
+    @Test(timeout = TIMEOUT)
+    fun testWithEventStructureStrategySC() = _testWithEventStructureStrategySC()
+    @Test(timeout = TIMEOUT)
+    fun testWithModelCheckingStrategy() = _testWithModelCheckingStrategy()
+    @Test(timeout = TIMEOUT)
+    fun testWithStressStrategy() = _testWithStressStrategy()
 }

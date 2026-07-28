@@ -36,8 +36,16 @@ class ESkipListMapTest : AbstractEventStructureTest() {
     @Operation
     fun remove(key: Int) = skiplistMap.remove(key)
 
-    @Ignore("SkipListMap is not linearizable")
+    @Test(timeout = TIMEOUT, expected = AssertionError::class) // Skip list map is not linearizable, as it misuses acquireFence
+    fun testWithEventStructureStrategyJAM() = _testWithEventStructureStrategyJAM()
     @Test(timeout = TIMEOUT)
-    fun testWithEventStructureStrategy() = _testWithEventStructureStrategy()
+    fun testWithEventStructureStrategySC() = _testWithEventStructureStrategySC()
+    @Test(timeout = TIMEOUT)
+    fun testWithModelCheckingStrategy() = _testWithModelCheckingStrategy()
+    @Test(timeout = TIMEOUT)
+    fun testWithStressStrategy() = _testWithStressStrategy()
+
+//    @Test(timeout = TIMEOUT, expected = AssertionError::class) // Skip list map is not linearizable
+//    fun test() = _testWithEventStructureStrategyJAM()
 
 }

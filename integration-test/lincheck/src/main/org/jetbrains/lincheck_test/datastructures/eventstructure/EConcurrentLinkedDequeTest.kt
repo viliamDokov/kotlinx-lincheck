@@ -11,11 +11,12 @@
 package org.jetbrains.lincheck_test.datastructures.eventstructure
 
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
+import org.jetbrains.kotlinx.lincheck_test.AbstractLincheckTest
 import org.jetbrains.lincheck.datastructures.*
 import java.util.concurrent.*
 import org.junit.*
 
-class EConcurrentLinkedDequeTest {
+class EConcurrentLinkedDequeTest  {
     private val deque = ConcurrentLinkedDeque<Int>()
 
     @Operation
@@ -37,10 +38,30 @@ class EConcurrentLinkedDequeTest {
     fun peekLast() = deque.peekLast()
 
     @Test(expected = AssertionError::class)
-    fun testWithEventStructureStrategy() = ModelCheckingOptions()
+    fun testWithEventStructureStrategyJAM() = ModelCheckingOptions()
         .useExperimentalModelChecking()
         .memoryModel(MemoryModel.JAM21)
-        .iterations(25)
-        .invocationsPerIteration(200)
+        .iterations(30)
+        .invocationsPerIteration(1000)
+        .check(this::class)
+
+    @Test(expected = AssertionError::class)
+    fun testWithEventStructureStrategySC() = ModelCheckingOptions()
+        .useExperimentalModelChecking()
+        .memoryModel(MemoryModel.SequentialConsistency)
+        .iterations(30)
+        .invocationsPerIteration(1000)
+        .check(this::class)
+
+    @Test(expected = AssertionError::class)
+    fun testWithModelCheckingStrategy() = ModelCheckingOptions()
+        .iterations(30)
+        .invocationsPerIteration(1000)
+        .check(this::class)
+
+    @Test(expected = AssertionError::class)
+    fun testWithStressStrategy() = StressOptions()
+        .iterations(30)
+        .invocationsPerIteration(1000)
         .check(this::class)
 }

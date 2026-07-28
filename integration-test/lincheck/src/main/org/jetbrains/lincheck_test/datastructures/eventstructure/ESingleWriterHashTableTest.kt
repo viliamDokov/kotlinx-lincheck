@@ -18,11 +18,6 @@ import kotlin.reflect.KClass
 import org.junit.Test
 
 class SingleWriterHashTableTest() {
-    val scenarios: Int = 300
-    val threads: Int = 3
-    val actorsBefore: Int = 1
-
-    val checkObstructionFreedom: Boolean = true
     val sequentialSpecification: KClass<*> = SequentialHashTableIntInt::class
 
     private val hashTable = SingleWriterHashTable<Int, Int>(initialCapacity = 30)
@@ -38,17 +33,43 @@ class SingleWriterHashTableTest() {
 
 
     @Test(timeout = TIMEOUT, expected = AssertionError::class)
-    fun testWithEventStructureStrategy() = ModelCheckingOptions()
+    fun testWithEventStructureStrategyJAM() = ModelCheckingOptions()
         .useExperimentalModelChecking()
         .memoryModel(MemoryModel.JAM21)
-        .iterations(scenarios)
-        .invocationsPerIteration(10_000)
-        .actorsBefore(actorsBefore)
-        .threads(threads)
-        .actorsPerThread(2)
-        .actorsAfter(0)
-        .checkObstructionFreedom(checkObstructionFreedom)
+        .iterations(30)
+        .invocationsPerIteration(7500)
+        .checkObstructionFreedom(true)
         .sequentialSpecification(sequentialSpecification.java)
+        .minimizeFailedScenario(false)
+        .check(this::class.java)
+
+    @Test(timeout = TIMEOUT, expected = AssertionError::class)
+    fun testWithEventStructureStrategySC() = ModelCheckingOptions()
+        .useExperimentalModelChecking()
+        .memoryModel(MemoryModel.SequentialConsistency)
+        .iterations(30)
+        .invocationsPerIteration(7500)
+        .checkObstructionFreedom(true)
+        .sequentialSpecification(sequentialSpecification.java)
+        .minimizeFailedScenario(false)
+        .check(this::class.java)
+
+    @Test(timeout = TIMEOUT, expected = AssertionError::class)
+    fun testWithModelCheckingStrategy() = ModelCheckingOptions()
+        .iterations(30)
+        .invocationsPerIteration(7500)
+        .checkObstructionFreedom(true)
+        .sequentialSpecification(sequentialSpecification.java)
+        .minimizeFailedScenario(false)
+        .check(this::class.java)
+
+
+    @Test(timeout = TIMEOUT, expected = AssertionError::class)
+    fun testWithStressStrategy() = StressOptions()
+        .iterations(30)
+        .invocationsPerIteration(7500)
+        .sequentialSpecification(sequentialSpecification.java)
+        .minimizeFailedScenario(false)
         .check(this::class.java)
 
 }

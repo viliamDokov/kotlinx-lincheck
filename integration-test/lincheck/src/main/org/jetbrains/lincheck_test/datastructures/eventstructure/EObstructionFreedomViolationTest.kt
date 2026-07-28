@@ -10,12 +10,14 @@
 
 package org.jetbrains.lincheck_test.datastructures.eventstructure
 
+import org.jetbrains.kotlinx.lincheck.strategy.IncorrectResultsFailure
+import org.jetbrains.kotlinx.lincheck.strategy.UnexpectedExceptionFailure
 import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistency.MemoryModel
 import org.jetbrains.kotlinx.lincheck_test.datastructures.*
 import org.jetbrains.lincheck.datastructures.*
 import org.junit.*
 
-class EObstructionFreedomViolationTest {
+class EObstructionFreedomViolationTest  {
     private val q = MSQueueBlocking()
 
     @Operation
@@ -25,14 +27,34 @@ class EObstructionFreedomViolationTest {
     fun dequeue(): Int? = q.dequeue()
 
     @Test(expected = AssertionError::class)
-    fun runModelCheckingTest() = ModelCheckingOptions()
+    fun testWithModelCheckingStrategy() = ModelCheckingOptions()
+        .iterations(30)
+        .invocationsPerIteration(7500)
         .checkObstructionFreedom(true)
         .check(this::class)
 
     @Test(expected = AssertionError::class)
-    fun testWithEventStructureStrategy() = ModelCheckingOptions()
+    fun testWithEventStructureStrategyJAM() = ModelCheckingOptions()
+        .iterations(30)
+        .invocationsPerIteration(7500)
         .useExperimentalModelChecking()
         .memoryModel(MemoryModel.JAM21)
         .checkObstructionFreedom(true)
+        .check(this::class)
+
+    @Test(expected = AssertionError::class)
+    fun testWithEventStructureStrategySC() = ModelCheckingOptions()
+        .iterations(30)
+        .invocationsPerIteration(7500)
+        .useExperimentalModelChecking()
+        .memoryModel(MemoryModel.SequentialConsistency)
+        .checkObstructionFreedom(true)
+        .check(this::class)
+
+
+    @Test() // No obstruction-freedom checking for stress testing
+    fun testWithStressStrategy() = StressOptions()
+        .iterations(30)
+        .invocationsPerIteration(7500)
         .check(this::class)
 }

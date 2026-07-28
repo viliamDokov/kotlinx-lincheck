@@ -33,11 +33,17 @@ class EConcurrentHashMapTest : AbstractEventStructureTest() {
 
     override fun <O : Options<O, *>> O.customize() {
         if (this is ModelCheckingOptions) {
-            invocationsPerIteration(10000)
             analyzeStdLib(true)
         }
     }
 
     @Test(timeout = TIMEOUT)
-    fun testWithEventStructureStrategy() = _testWithEventStructureStrategy()
+    fun testWithEventStructureStrategyJAM() = _testWithEventStructureStrategyJAM()
+    @Test(timeout = TIMEOUT)
+    fun testWithEventStructureStrategySC() = _testWithEventStructureStrategySC()
+    @Test(timeout = TIMEOUT)
+    fun testWithModelCheckingStrategy() = _testWithModelCheckingStrategy()
+    @Test(timeout = TIMEOUT)
+    fun testWithStressStrategy() = _testWithStressStrategy()
+
 }

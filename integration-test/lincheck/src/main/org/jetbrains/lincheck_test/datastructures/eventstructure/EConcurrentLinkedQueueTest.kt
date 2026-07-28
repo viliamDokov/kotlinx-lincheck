@@ -18,7 +18,7 @@ import org.junit.Test
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
-class ConcurrentLinkedQueueTest {
+class ConcurrentLinkedQueueTest: AbstractEventStructureTest() {
     private val s = ConcurrentLinkedQueue<Int>()
 
     @Operation
@@ -27,14 +27,14 @@ class ConcurrentLinkedQueueTest {
     @Operation
     fun poll(): Int? = s.poll()
 
-    @Test
-    fun testWithEventStructureStrategy() = ModelCheckingOptions()
-        .useExperimentalModelChecking()
-        .iterations(10)
-        .memoryModel(MemoryModel.JAM21)
-        .invocationsPerIteration(100)
-        .sequentialSpecification(SequentialQueue::class.java)
-        .check(this::class)
+    @Test(timeout = TIMEOUT)
+    fun testWithEventStructureStrategyJAM() = _testWithEventStructureStrategyJAM()
+    @Test(timeout = TIMEOUT)
+    fun testWithEventStructureStrategySC() = _testWithEventStructureStrategySC()
+    @Test(timeout = TIMEOUT)
+    fun testWithModelCheckingStrategy() = _testWithModelCheckingStrategy()
+    @Test(timeout = TIMEOUT)
+    fun testWithStressStrategy() = _testWithStressStrategy()
 }
 
 class SequentialQueue {

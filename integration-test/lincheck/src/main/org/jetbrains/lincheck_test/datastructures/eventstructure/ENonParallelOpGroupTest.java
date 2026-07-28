@@ -16,6 +16,8 @@ import org.jetbrains.lincheck.datastructures.Operation;
 import org.jetbrains.lincheck.datastructures.Options;
 import org.junit.Test;
 
+import static org.jetbrains.lincheck_test.datastructures.eventstructure.AbstractEventStructureTestKt.TIMEOUT;
+
 
 public class ENonParallelOpGroupTest extends AbstractEventStructureTest {
     private final SpscLinkedAtomicQueue<Integer> queue = new SpscLinkedAtomicQueue<>();
@@ -30,9 +32,21 @@ public class ENonParallelOpGroupTest extends AbstractEventStructureTest {
         return queue.poll();
     }
 
-    @Test
-    public void testWithEventStructureStrategy() {
-        _testWithEventStructureStrategy();
+    @Test(timeout = TIMEOUT)
+    public void testWithEventStructureStrategyJAM() {
+        _testWithEventStructureStrategyJAM();
+    }
+    @Test(timeout = TIMEOUT)
+    public void testWithEventStructureStrategySC() {
+        _testWithEventStructureStrategySC();
+    }
+    @Test(timeout = TIMEOUT)
+    public void testWithModelCheckingStrategy() {
+        _testWithModelCheckingStrategy();
+    }
+    @Test(timeout = TIMEOUT)
+    public void testWithStressStrategy() {
+        _testWithStressStrategy();
     }
 
 }
