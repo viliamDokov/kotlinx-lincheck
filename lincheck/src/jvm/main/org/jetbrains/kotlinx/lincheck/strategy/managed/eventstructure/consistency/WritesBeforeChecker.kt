@@ -24,7 +24,6 @@ import org.jetbrains.lincheck.util.collections.SortedArrayList
 import org.jetbrains.lincheck.util.collections.SortedMutableList
 import org.jetbrains.lincheck.util.collections.binarySearch
 import org.jetbrains.lincheck.util.collections.cartesianProduct
-import org.jetbrains.lincheck.util.implies
 import org.jetbrains.lincheck.util.unreachable
 
 class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memoryAccessEventIndex: AtomicMemoryAccessEventIndex, val memoryModel: MemoryModel): ExtendedExecutionTracker {
@@ -37,12 +36,15 @@ class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memor
     var stale: Boolean = true
     var consistencyResult : Inconsistency? = null
 
+    val allEventEnumerator = MutableEventEnumerator()
+
 
     val events = mutableListOf<AtomicThreadEvent>()
     val inconsistency : Inconsistency?
         get() = null
 
     override fun onAdd(event: AtomicThreadEvent) {
+        allEventEnumerator.add(event)
         val label = event.label as? MemoryAccessLabel ?: return
         // If not write or read response, then we skip
         if (!(label.isWrite || label.isResponse)) return
@@ -74,7 +76,9 @@ class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memor
         exclusiveWrites.clear()
         volatileEventEnumerator.clear()
         writesHBTracker.clear()
+        allEventEnumerator.clear()
         execution.forEach { event ->
+            allEventEnumerator.add(event)
             if(!eventIsMemoryAccessLabel(event)) return@forEach
             val label = event.label as MemoryAccessLabel
             writesHBTracker.addMemoryAccessEvent(event)
@@ -113,16 +117,12 @@ class WritesBeforeChecker(val execution: Execution<AtomicThreadEvent>, val memor
     }
 
     private fun checkSequentialConsistency(): Inconsistency? {
-        Counter.count("Early check")
         if (volatileEventEnumerator.list.isEmpty()) return null
 
-        val enum = execution.buildEnumerator()
-        val eventList = execution.toList()
 
-        val scGraph = SCGraph(execution, eventList, enum, memoryAccessEventIndex);
+        val scGraph = SCGraph(execution, allEventEnumerator.list, allEventEnumerator, memoryAccessEventIndex);
         scGraph.initializeCausalOrder(happensBeforeOrder)
         forEachCoherenceOrderSc().forEach { coherenceOrder ->
-            Counter.count("SCGraph.coherenceOrder")
             // Check sequential Consistency
             scGraph.setCoherenceOrder(coherenceOrder)
             val hasCycle = scGraph.hasCycle()
@@ -278,15 +278,21 @@ class SCGraph(
     val DONE_MASK: Int = (1 shl 30)
 
     fun initializeCausalOrder(causalOrder: Relation<AtomicThreadEvent>) {
-        for(event in events) {
-            val eIdx = eventEnumerator[event]
-            for(tid in -1 until execution.maxThreadId) {
-                val threadEvents = execution[tid] ?: continue
-                var position = threadEvents.binarySearch { causalOrder(event, it) }
-                // We need this to kick-start the  initial event
-                if (event.label is InitializationLabel && tid != event.threadId) position = 0
-                val otherEvent = execution[tid, position] ?: continue
-                causalGraph.addChild(event, otherEvent)
+        for(tid in -1 until execution.maxThreadId) {
+            val threadEvents = execution[tid] ?: continue
+            outer@ for(tid2 in -1 until execution.maxThreadId) {
+                val threadEvents2 = execution[tid2] ?: continue
+                var maxID = threadEvents2.size - 1
+                for(tPos in (threadEvents.size - 1) downTo  0) {
+                    val event = threadEvents[tPos]
+                    val eIdx = eventEnumerator[event]
+
+                    var tPos2 = threadEvents2.binarySearch(0, maxID + 1) { causalOrder(event, it) }
+                    if (event.label is InitializationLabel && tid2 != tid) tPos2 = 0
+                    val otherEvent = threadEvents2.getOrNull(tPos2) ?: continue@outer // We can skip with outer as
+                    maxID = tPos2
+                    causalGraph.addChild(event, otherEvent)
+                }
             }
         }
     }
