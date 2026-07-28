@@ -596,7 +596,7 @@ object LincheckInstrumentation {
      * @param obj the object to be transformed.
      */
     fun ensureObjectIsTransformed(obj: Any) {
-        if (instrumentationStrategy == InstrumentationStrategy.EAGER) return
+        if (instrumentationStrategy == InstrumentationStrategy.EAGER || obj.isImmutable) return
 
         val classesToTransform = mutableSetOf<Class<*>>()
         ensureObjectIsTransformed(obj, identityHashSetOf(), classesToTransform)

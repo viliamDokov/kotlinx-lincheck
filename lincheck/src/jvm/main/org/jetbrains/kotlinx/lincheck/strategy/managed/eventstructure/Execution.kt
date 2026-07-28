@@ -237,8 +237,10 @@ fun<E : ThreadEvent> Execution<E>.buildEnumerator() = object : Enumerator<E> {
     private val events = enumerationOrderSorted()
 
     private val eventIndices = threadMap.mapValues { (_, threadEvents) ->
-        List(threadEvents.size) { pos ->
-            events.indexOf(threadEvents[pos]).ensure { it >= 0 }
+        IntArray(threadEvents.size)
+    }.also { indices ->
+        events.forEachIndexed { index, event ->
+            indices.getValue(event.threadId)[event.threadPosition] = index
         }
     }
 

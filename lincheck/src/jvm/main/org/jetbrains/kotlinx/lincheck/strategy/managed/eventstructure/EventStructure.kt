@@ -411,10 +411,9 @@ internal class EventStructure(
                 val write = dependencies.first()
                 val writeLabel = write.label
                 check(writeLabel is WriteAccessLabel || writeLabel is ObjectAllocationLabel || writeLabel is InitializationLabel)
-                for (event in execution) {
-                    val otherLabel = event.label
-                    val otherReadLabel = otherLabel.refine<ReadAccessLabel> { isResponse && isExclusive } ?: continue
-                    if (otherReadLabel.location != label.location) continue
+                for (event in execution.memoryAccessEventIndex.getReadResponses(label.location)) {
+                    val otherReadLabel = event.label as ReadAccessLabel
+                    if (!otherReadLabel.isExclusive) continue
                     if (event.readsFrom != write) continue
                     val execlusiveWriteLabel = execution[event.threadId, event.threadPosition + 1]?.label as? WriteAccessLabel ?: continue
                     // If it is not actually exclusive, or the location does not match then this is a failed CAS, so no conflicts

@@ -120,8 +120,11 @@ internal class EventStructureStrategy(
                 eventStructure.abortExploration()
             }
             if (result is CompletedInvocationResult) {
-                val patchedResult = patchResultsClock(eventStructure.execution, result.results)
-                result = CompletedInvocationResult(patchedResult)
+                // LambdaRunner has one synthetic result whose zero clock does not need actor aggregation.
+                if (runner !is LambdaRunner<*>) {
+                    val patchedResult = patchResultsClock(eventStructure.execution, result.results)
+                    result = CompletedInvocationResult(patchedResult)
+                }
             }
             inconsistency = when (result) {
                 is InconsistentInvocationResult -> result.inconsistency
