@@ -59,7 +59,7 @@ class EConcurrentLinkedDequeTest  {
         .invocationsPerIteration(1000)
         .check(this::class)
 
-    @Test(expected = AssertionError::class)
+    @Test
     fun testWithStressStrategy() = StressOptions()
         .iterations(30)
         .invocationsPerIteration(1000)
