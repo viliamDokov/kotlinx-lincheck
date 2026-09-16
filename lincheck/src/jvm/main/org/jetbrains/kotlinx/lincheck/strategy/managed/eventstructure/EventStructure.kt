@@ -214,6 +214,7 @@ internal class EventStructure(
     }
 
     private fun resetExploration(backtrackingPoint: BacktrackingPoint) {
+        println("================================= RESET ==========================")
         // get the event to backtrack to
         val event = backtrackingPoint.event.ensure {
             it.label is InitializationLabel || it.label.isResponse
@@ -348,6 +349,8 @@ internal class EventStructure(
             pinnedEvents = newPinnedEvents,
             blockedRequests = blockedRequests,
         )
+        println("  Backtracking point: $event")
+        println("  Frontier: $frontier")
         backtrackingPoints.add(backtrackingPoint)
     }
 
@@ -479,6 +482,7 @@ internal class EventStructure(
     private fun addEventToCurrentExecution(event: AtomicThreadEvent) {
         // Check if the added event is replayed event.
         val isReplayedEvent = inReplayPhase(event.threadId)
+        println("Adding event $event $isReplayedEvent")
         // Update current execution and replayed frontier.
         if (!isReplayedEvent) {
             _execution.add(event)
@@ -696,6 +700,7 @@ internal class EventStructure(
 
     private fun filterReadSynchronizationCandidates(event: ThreadEvent, candidates: Sequence<AtomicThreadEvent>) : Sequence<AtomicThreadEvent> {
         val label: ReadAccessLabel = event.label as ReadAccessLabel
+//        return candidates
         return when (memoryModel) {
             MemoryModel.SequentialConsistency -> {
                 // We can optimize and remove some synchronized events if we are checking for sequential consistency

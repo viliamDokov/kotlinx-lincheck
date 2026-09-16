@@ -118,9 +118,26 @@ class FullConsistencyChecker(val execution: Execution<AtomicThreadEvent>, val me
         return CoherenceViolation()
     }
 
+    fun g(threadId: Int, threadPosition: Int) : Int? {
+        val event = execution[threadId, threadPosition] ?: return null
+        val label = event.label as? ReadAccessLabel ?: return null
+        return label.value.toInt()
+    }
+
+    fun i() {
+//        println("Execution $execution")
+        val r1 = g(2,6)
+        val r2 = g(2,12)
+        val r3 = g(2,18)
+        val r4 = g(3, 6)
+        println("$r1 $r2 $r3 $r4")
+        Exception().printStackTrace()
+    }
+
     private fun doCheckWithTotalOrders() : Inconsistency? {
         // No need to compute the graph if there are no volatile events
         if (volatileEventEnumerator.list.isEmpty()) return null
+        i()
 
 
         writesBeforeTracker.coherenceOrders().forEach { coherenceOrder ->
@@ -398,6 +415,7 @@ class WritesBeforeGraph: Graph<AtomicThreadEvent> {
             setExclusiveChild(readsFrom, write)
         }
     }
+
 
     private fun setExclusiveChild(write1: AtomicThreadEvent, write2: AtomicThreadEvent) {
         // This should get called only immediately after the write2 event is added!
