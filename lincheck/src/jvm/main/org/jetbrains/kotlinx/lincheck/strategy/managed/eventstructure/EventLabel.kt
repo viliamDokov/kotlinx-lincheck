@@ -527,8 +527,8 @@ val MemoryAccessLabel.accessKind: MemoryAccessKind
 
 sealed class ReadModifyWriteDescriptor {
     data class GetAndSetDescriptor(val newValue: ValueID): ReadModifyWriteDescriptor()
-    data class CompareAndSetDescriptor(val expectedValue: ValueID, val newValue: ValueID): ReadModifyWriteDescriptor()
-    data class CompareAndExchangeDescriptor(val expectedValue: ValueID, val newValue: ValueID): ReadModifyWriteDescriptor()
+    data class CompareAndSetDescriptor(val expectedValue: ValueID, val newValue: ValueID, val writeMemoryOrdering: MemoryOrdering): ReadModifyWriteDescriptor()
+    data class CompareAndExchangeDescriptor(val expectedValue: ValueID, val newValue: ValueID, val writeMemoryOrdering: MemoryOrdering): ReadModifyWriteDescriptor()
     data class FetchAndAddDescriptor(val delta: ValueID, val kind: IncrementKind): ReadModifyWriteDescriptor()
     enum class IncrementKind { Pre, Post }
 }

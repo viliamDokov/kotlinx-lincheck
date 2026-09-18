@@ -1801,7 +1801,7 @@ internal abstract class ManagedStrategy(
         }
 
         // in the case of atomics API setter method call, notify the object tracker about a new link between objects
-        if (atomicMethodDescriptor != null && atomicMethodDescriptor.kind.isSetter) {
+        if (atomicMethodDescriptor != null && atomicMethodDescriptor.isSetter) {
             objectTracker.registerObjectLink(
                 fromObject = atomicMethodDescriptor.getAccessedObject(receiver, params),
                 toObject = atomicMethodDescriptor.getSetValue(receiver, params)

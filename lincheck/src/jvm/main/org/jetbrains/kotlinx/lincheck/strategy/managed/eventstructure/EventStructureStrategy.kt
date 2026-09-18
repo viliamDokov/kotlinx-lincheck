@@ -30,7 +30,6 @@ import org.jetbrains.kotlinx.lincheck.strategy.managed.eventstructure.consistenc
 import org.jetbrains.kotlinx.lincheck.trace.Trace
 import org.jetbrains.lincheck.descriptors.Types
 import org.jetbrains.lincheck.descriptors.getArrayElementType
-import org.jetbrains.lincheck.descriptors.getType
 import org.jetbrains.lincheck.trace.TraceContext
 import org.jetbrains.lincheck.util.*
 import org.jetbrains.lincheck.util.collections.*
@@ -669,15 +668,17 @@ private class EventStructureMemoryTracker(
         iThread: Int,
         codeLocation: Int,
         location: MemoryLocation,
-        memoryOrder: MemoryOrdering,
+        readMemoryOrder: MemoryOrdering,
+        writeMemoryOrder: MemoryOrdering,
         expectedValue: Any?,
         newValue: Any?
     ) {
         // TODO: should also do the hack from compare and exchange?
-        eventStructure.addReadRequest(iThread, codeLocation, location, memoryOrder,
+        eventStructure.addReadRequest(iThread, codeLocation, location, readMemoryOrder,
             readModifyWriteDescriptor = ReadModifyWriteDescriptor.CompareAndSetDescriptor(
                 expectedValue = getValueID(location, expectedValue?.opaque()),
                 newValue = getValueID(location, newValue?.opaque()),
+                writeMemoryOrdering = writeMemoryOrder,
             )
         )
     }
@@ -686,20 +687,17 @@ private class EventStructureMemoryTracker(
         iThread: Int,
         codeLocation: Int,
         location: MemoryLocation,
-        memoryOrder: MemoryOrdering,
+        readMemoryOrder: MemoryOrdering,
+        writeMemoryOrder: MemoryOrdering,
         expectedValue: Any?,
         newValue: Any?
     ) {
         // Hacky way of downgrading the read portion of weak compare and set
-        val readMemoryOrder = if (memoryOrder == MemoryOrdering.RELEASE) {
-            MemoryOrdering.PLAIN
-        } else {
-            memoryOrder
-        }
         eventStructure.addReadRequest(iThread, codeLocation, location, readMemoryOrder,
             readModifyWriteDescriptor = ReadModifyWriteDescriptor.CompareAndExchangeDescriptor(
                 expectedValue = getValueID(location, expectedValue?.opaque()),
                 newValue = getValueID(location, newValue?.opaque()),
+                writeMemoryOrdering = writeMemoryOrder,
             )
         )
     }

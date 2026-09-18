@@ -479,6 +479,8 @@ internal class EventStructure(
     private fun addEventToCurrentExecution(event: AtomicThreadEvent) {
         // Check if the added event is replayed event.
         val isReplayedEvent = inReplayPhase(event.threadId)
+        println("Adding $event $isReplayedEvent")
+        Exception().printStackTrace()
         // Update current execution and replayed frontier.
         if (!isReplayedEvent) {
             _execution.add(event)

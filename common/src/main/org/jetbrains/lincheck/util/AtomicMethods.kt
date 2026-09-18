@@ -13,44 +13,58 @@ package org.jetbrains.lincheck.util
 import org.jetbrains.lincheck.descriptors.*
 import org.jetbrains.lincheck.trace.TraceContext
 import org.jetbrains.lincheck.util.AtomicApiKind.*
-import org.jetbrains.lincheck.util.AtomicMethodKind.*
 import org.jetbrains.lincheck.util.MemoryOrdering.*
 import sun.misc.Unsafe
 import java.util.concurrent.atomic.*
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
-internal data class AtomicMethodDescriptor(
-    val kind: AtomicMethodKind,
-    val apiKind: AtomicApiKind,
-    val ordering: MemoryOrdering,
-)
-
-internal enum class AtomicMethodKind {
-    GET, SET,
-    GET_AND_SET,
-    COMPARE_AND_SET,
-    WEAK_COMPARE_AND_SET,
-    COMPARE_AND_EXCHANGE,
-    GET_AND_ADD, ADD_AND_GET,
-    GET_AND_INCREMENT, INCREMENT_AND_GET,
-    GET_AND_DECREMENT, DECREMENT_AND_GET;
+internal sealed class AtomicMethodDescriptor(
+    open val apiKind: AtomicApiKind,
+) {
+    fun copy(apiKind: AtomicApiKind = this.apiKind): AtomicMethodDescriptor = when (this) {
+        is GET                  -> GET(apiKind, memoryOrdering)
+        is SET                  -> SET(apiKind, memoryOrdering)
+        is GET_AND_ADD          -> GET_AND_ADD(apiKind, memoryOrdering)
+        is ADD_AND_GET          -> ADD_AND_GET(apiKind, memoryOrdering)
+        is GET_AND_INCREMENT    -> GET_AND_INCREMENT(apiKind, memoryOrdering)
+        is INCREMENT_AND_GET    -> INCREMENT_AND_GET(apiKind, memoryOrdering)
+        is GET_AND_DECREMENT    -> GET_AND_DECREMENT(apiKind, memoryOrdering)
+        is DECREMENT_AND_GET    -> DECREMENT_AND_GET(apiKind, memoryOrdering)
+        is GET_AND_SET          -> GET_AND_SET(apiKind, readOrdering, writeOrdering)
+        is COMPARE_AND_SET      -> COMPARE_AND_SET(apiKind, readOrdering, writeOrdering)
+        is WEAK_COMPARE_AND_SET -> WEAK_COMPARE_AND_SET(apiKind, readOrdering, writeOrdering)
+        is COMPARE_AND_EXCHANGE -> COMPARE_AND_EXCHANGE(apiKind, readOrdering, writeOrdering)
+    }
 }
 
-internal val AtomicMethodKind.isSetter get() = when (this) {
-    SET,
-    GET_AND_SET,
-    COMPARE_AND_SET,
-    WEAK_COMPARE_AND_SET,
-    COMPARE_AND_EXCHANGE
+internal class GET(apiKind: AtomicApiKind, val memoryOrdering: MemoryOrdering) : AtomicMethodDescriptor(apiKind)
+internal class SET(apiKind: AtomicApiKind, val memoryOrdering: MemoryOrdering) : AtomicMethodDescriptor(apiKind)
+internal class GET_AND_ADD(apiKind: AtomicApiKind, val memoryOrdering: MemoryOrdering) : AtomicMethodDescriptor(apiKind)
+internal class ADD_AND_GET(apiKind: AtomicApiKind, val memoryOrdering: MemoryOrdering) : AtomicMethodDescriptor(apiKind)
+internal class GET_AND_INCREMENT(apiKind: AtomicApiKind, val memoryOrdering: MemoryOrdering) : AtomicMethodDescriptor(apiKind)
+internal class INCREMENT_AND_GET(apiKind: AtomicApiKind, val memoryOrdering: MemoryOrdering) : AtomicMethodDescriptor(apiKind)
+internal class GET_AND_DECREMENT(apiKind: AtomicApiKind, val memoryOrdering: MemoryOrdering) : AtomicMethodDescriptor(apiKind)
+internal class DECREMENT_AND_GET(apiKind: AtomicApiKind, val memoryOrdering: MemoryOrdering) : AtomicMethodDescriptor(apiKind)
+internal class GET_AND_SET(apiKind: AtomicApiKind, val readOrdering: MemoryOrdering, val writeOrdering: MemoryOrdering) : AtomicMethodDescriptor(apiKind)
+internal class COMPARE_AND_SET(apiKind: AtomicApiKind, val readOrdering: MemoryOrdering, val writeOrdering: MemoryOrdering) : AtomicMethodDescriptor(apiKind)
+internal class WEAK_COMPARE_AND_SET(apiKind: AtomicApiKind, val readOrdering: MemoryOrdering, val writeOrdering: MemoryOrdering) : AtomicMethodDescriptor(apiKind)
+internal class COMPARE_AND_EXCHANGE(apiKind: AtomicApiKind, val readOrdering: MemoryOrdering, val writeOrdering: MemoryOrdering) : AtomicMethodDescriptor(apiKind)
+
+internal val AtomicMethodDescriptor.isSetter get() = when (this) {
+    is SET,
+    is GET_AND_SET,
+    is COMPARE_AND_SET,
+    is WEAK_COMPARE_AND_SET,
+    is COMPARE_AND_EXCHANGE
          -> true
     else -> false
 }
 
-internal val AtomicMethodKind.isCasSetter get() = when (this) {
-    COMPARE_AND_SET,
-    WEAK_COMPARE_AND_SET,
-    COMPARE_AND_EXCHANGE
+internal val AtomicMethodDescriptor.isCasSetter get() = when (this) {
+    is COMPARE_AND_SET,
+    is WEAK_COMPARE_AND_SET,
+    is COMPARE_AND_EXCHANGE
          -> true
     else -> false
 }
@@ -128,7 +142,7 @@ internal fun AtomicMethodDescriptor.getAccessedObject(obj: Any?, params: Array<A
 }
 
 internal fun AtomicMethodDescriptor.getSetValue(obj: Any?, params: Array<Any?>): Any? {
-    require(kind.isSetter)
+    require(isSetter)
 
     var argOffset = 0
     // AFU case - the first argument is an accessed object
@@ -157,7 +171,7 @@ internal fun AtomicMethodDescriptor.getSetValue(obj: Any?, params: Array<Any?>):
         argOffset += 1
     }
     // CAS case - there is an expected value additional argument
-    if (kind.isCasSetter) {
+    if (isCasSetter) {
         argOffset += 1
     }
     return params[argOffset]
@@ -750,102 +764,102 @@ internal fun parseUnsafeMethodAccessType(methodName: String): Types.Type? = when
 
 private val atomicMethods = mapOf(
     // get
-    "get"           to AtomicMethodDescriptor(GET, ATOMIC_OBJECT, VOLATILE),
-    "getAcquire"    to AtomicMethodDescriptor(GET, ATOMIC_OBJECT, ACQUIRE),
-    "getOpaque"     to AtomicMethodDescriptor(GET, ATOMIC_OBJECT, OPAQUE),
-    "getPlain"      to AtomicMethodDescriptor(GET, ATOMIC_OBJECT, PLAIN),
+    "get"           to GET(ATOMIC_OBJECT, VOLATILE),
+    "getAcquire"    to GET(ATOMIC_OBJECT, VOLATILE),
+    "getOpaque"     to GET(ATOMIC_OBJECT, VOLATILE),
+    "getPlain"      to GET(ATOMIC_OBJECT, VOLATILE),
 
     // set
-    "set"           to AtomicMethodDescriptor(SET, ATOMIC_OBJECT, VOLATILE),
-    "lazySet"       to AtomicMethodDescriptor(SET, ATOMIC_OBJECT, RELEASE),
-    "setRelease"    to AtomicMethodDescriptor(SET, ATOMIC_OBJECT, RELEASE),
-    "setOpaque"     to AtomicMethodDescriptor(SET, ATOMIC_OBJECT, OPAQUE),
-    "setPlain"      to AtomicMethodDescriptor(SET, ATOMIC_OBJECT, PLAIN),
+    "set"           to SET(ATOMIC_OBJECT, VOLATILE),
+    "lazySet"       to SET(ATOMIC_OBJECT, RELEASE),
+    "setRelease"    to SET(ATOMIC_OBJECT, RELEASE),
+    "setOpaque"     to SET(ATOMIC_OBJECT, OPAQUE),
+    "setPlain"      to SET(ATOMIC_OBJECT, PLAIN),
 
     // getAndSet
-    "getAndSet" to AtomicMethodDescriptor(GET_AND_SET, ATOMIC_OBJECT, VOLATILE),
+    "getAndSet" to GET_AND_SET(ATOMIC_OBJECT, VOLATILE, VOLATILE),
 
     // compareAndExchange
-    "compareAndExchange"        to AtomicMethodDescriptor(COMPARE_AND_EXCHANGE, ATOMIC_OBJECT, VOLATILE),
-    "compareAndExchangeAcquire" to AtomicMethodDescriptor(COMPARE_AND_EXCHANGE, ATOMIC_OBJECT, ACQUIRE),
-    "compareAndExchangeRelease" to AtomicMethodDescriptor(COMPARE_AND_EXCHANGE, ATOMIC_OBJECT, RELEASE),
+    "compareAndExchange"        to COMPARE_AND_EXCHANGE(ATOMIC_OBJECT, VOLATILE, VOLATILE),
+    "compareAndExchangeAcquire" to COMPARE_AND_EXCHANGE(ATOMIC_OBJECT, ACQUIRE, PLAIN),
+    "compareAndExchangeRelease" to COMPARE_AND_EXCHANGE(ATOMIC_OBJECT, PLAIN, RELEASE),
 
     // compareAndSet
-    "compareAndSet" to AtomicMethodDescriptor(COMPARE_AND_SET, ATOMIC_OBJECT, VOLATILE),
+    "compareAndSet" to COMPARE_AND_SET( ATOMIC_OBJECT, VOLATILE, VOLATILE),
 
     // weakCompareAndSet
-    "weakCompareAndSetVolatile" to AtomicMethodDescriptor(WEAK_COMPARE_AND_SET, ATOMIC_OBJECT, VOLATILE),
-    "weakCompareAndSetAcquire"  to AtomicMethodDescriptor(WEAK_COMPARE_AND_SET, ATOMIC_OBJECT, ACQUIRE),
-    "weakCompareAndSetRelease"  to AtomicMethodDescriptor(WEAK_COMPARE_AND_SET, ATOMIC_OBJECT, RELEASE),
-    "weakCompareAndSetPlain"    to AtomicMethodDescriptor(WEAK_COMPARE_AND_SET, ATOMIC_OBJECT, PLAIN),
-    "weakCompareAndSet"         to AtomicMethodDescriptor(WEAK_COMPARE_AND_SET, ATOMIC_OBJECT, PLAIN),
+    "weakCompareAndSetVolatile" to WEAK_COMPARE_AND_SET(ATOMIC_OBJECT, VOLATILE, VOLATILE),
+    "weakCompareAndSetAcquire"  to WEAK_COMPARE_AND_SET(ATOMIC_OBJECT, ACQUIRE, PLAIN),
+    "weakCompareAndSetRelease"  to WEAK_COMPARE_AND_SET(ATOMIC_OBJECT, PLAIN, RELEASE),
+    "weakCompareAndSetPlain"    to WEAK_COMPARE_AND_SET(ATOMIC_OBJECT, PLAIN, PLAIN),
+    "weakCompareAndSet"         to WEAK_COMPARE_AND_SET(ATOMIC_OBJECT, PLAIN, PLAIN),
 
     // increments
-    "getAndAdd"         to AtomicMethodDescriptor(GET_AND_ADD, ATOMIC_OBJECT, VOLATILE),
-    "addAndGet"         to AtomicMethodDescriptor(ADD_AND_GET, ATOMIC_OBJECT, VOLATILE),
-    "getAndIncrement"   to AtomicMethodDescriptor(GET_AND_INCREMENT, ATOMIC_OBJECT, VOLATILE),
-    "incrementAndGet"   to AtomicMethodDescriptor(INCREMENT_AND_GET, ATOMIC_OBJECT, VOLATILE),
-    "getAndDecrement"   to AtomicMethodDescriptor(GET_AND_DECREMENT, ATOMIC_OBJECT, VOLATILE),
-    "decrementAndGet"   to AtomicMethodDescriptor(DECREMENT_AND_GET, ATOMIC_OBJECT, VOLATILE),
+    "getAndAdd"         to GET_AND_ADD(ATOMIC_OBJECT, VOLATILE),
+    "addAndGet"         to ADD_AND_GET(ATOMIC_OBJECT, VOLATILE),
+    "getAndIncrement"   to GET_AND_INCREMENT(ATOMIC_OBJECT, VOLATILE),
+    "incrementAndGet"   to INCREMENT_AND_GET(ATOMIC_OBJECT, VOLATILE),
+    "getAndDecrement"   to GET_AND_DECREMENT(ATOMIC_OBJECT, VOLATILE),
+    "decrementAndGet"   to DECREMENT_AND_GET(ATOMIC_OBJECT, VOLATILE),
 )
 
 private val atomicArrayMethods =
     atomicMethods.mapValues { (_, descriptor) -> descriptor.copy(apiKind = ATOMIC_ARRAY) }
 
 private val atomicFieldUpdaterMethods = mapOf(
-    "get"               to AtomicMethodDescriptor(GET, ATOMIC_FIELD_UPDATER, VOLATILE),
-    "set"               to AtomicMethodDescriptor(SET, ATOMIC_FIELD_UPDATER, VOLATILE),
-    "lazySet"           to AtomicMethodDescriptor(SET, ATOMIC_FIELD_UPDATER, RELEASE),
-    "getAndSet"         to AtomicMethodDescriptor(GET_AND_SET, ATOMIC_FIELD_UPDATER, VOLATILE),
-    "compareAndSet"     to AtomicMethodDescriptor(COMPARE_AND_SET, ATOMIC_FIELD_UPDATER, VOLATILE),
-    "getAndAdd"         to AtomicMethodDescriptor(GET_AND_ADD, ATOMIC_FIELD_UPDATER, VOLATILE),
-    "addAndGet"         to AtomicMethodDescriptor(ADD_AND_GET, ATOMIC_FIELD_UPDATER, VOLATILE),
-    "getAndIncrement"   to AtomicMethodDescriptor(GET_AND_INCREMENT, ATOMIC_FIELD_UPDATER, VOLATILE),
-    "incrementAndGet"   to AtomicMethodDescriptor(INCREMENT_AND_GET, ATOMIC_FIELD_UPDATER, VOLATILE),
-    "getAndDecrement"   to AtomicMethodDescriptor(GET_AND_DECREMENT, ATOMIC_FIELD_UPDATER, VOLATILE),
-    "decrementAndGet"   to AtomicMethodDescriptor(DECREMENT_AND_GET, ATOMIC_FIELD_UPDATER, VOLATILE),
+    "get"               to GET(ATOMIC_FIELD_UPDATER, VOLATILE),
+    "set"               to SET(ATOMIC_FIELD_UPDATER, VOLATILE),
+    "lazySet"           to SET(ATOMIC_FIELD_UPDATER, RELEASE),
+    "getAndSet"         to GET_AND_SET(ATOMIC_FIELD_UPDATER, VOLATILE, VOLATILE),
+    "compareAndSet"     to COMPARE_AND_SET(ATOMIC_FIELD_UPDATER, VOLATILE, VOLATILE),
+    "getAndAdd"         to GET_AND_ADD(ATOMIC_FIELD_UPDATER, VOLATILE),
+    "addAndGet"         to ADD_AND_GET(ATOMIC_FIELD_UPDATER, VOLATILE),
+    "getAndIncrement"   to GET_AND_INCREMENT(ATOMIC_FIELD_UPDATER, VOLATILE),
+    "incrementAndGet"   to INCREMENT_AND_GET(ATOMIC_FIELD_UPDATER, VOLATILE),
+    "getAndDecrement"   to GET_AND_DECREMENT(ATOMIC_FIELD_UPDATER, VOLATILE),
+    "decrementAndGet"   to DECREMENT_AND_GET(ATOMIC_FIELD_UPDATER, VOLATILE),
 
     // It is unclear from the javadoc what is the intended memory ordering,
     // so we assume `Volatile` as the strongest one
-    "weakCompareAndSet" to AtomicMethodDescriptor(WEAK_COMPARE_AND_SET, ATOMIC_FIELD_UPDATER, VOLATILE),
+    "weakCompareAndSet" to WEAK_COMPARE_AND_SET(ATOMIC_FIELD_UPDATER, VOLATILE, VOLATILE),
 )
 
 private val varHandleMethods = mapOf(
     // get
-    "get"           to AtomicMethodDescriptor(GET, VAR_HANDLE, PLAIN),
-    "getOpaque"     to AtomicMethodDescriptor(GET, VAR_HANDLE, OPAQUE),
-    "getAcquire"    to AtomicMethodDescriptor(GET, VAR_HANDLE, ACQUIRE),
-    "getVolatile"   to AtomicMethodDescriptor(GET, VAR_HANDLE, VOLATILE),
+    "get"           to GET(VAR_HANDLE, PLAIN),
+    "getOpaque"     to GET(VAR_HANDLE, OPAQUE),
+    "getAcquire"    to GET(VAR_HANDLE, ACQUIRE),
+    "getVolatile"   to GET(VAR_HANDLE, VOLATILE),
 
     // set
-    "set"           to AtomicMethodDescriptor(SET, VAR_HANDLE, PLAIN),
-    "setOpaque"     to AtomicMethodDescriptor(SET, VAR_HANDLE, OPAQUE),
-    "setRelease"    to AtomicMethodDescriptor(SET, VAR_HANDLE, RELEASE),
-    "setVolatile"   to AtomicMethodDescriptor(SET, VAR_HANDLE, VOLATILE),
+    "set"           to SET(VAR_HANDLE, PLAIN),
+    "setOpaque"     to SET(VAR_HANDLE, OPAQUE),
+    "setRelease"    to SET(VAR_HANDLE, RELEASE),
+    "setVolatile"   to SET(VAR_HANDLE, VOLATILE),
 
     // getAndSet
-    "getAndSet"         to AtomicMethodDescriptor(GET_AND_SET, VAR_HANDLE, VOLATILE),
-    "getAndSetRelease"  to AtomicMethodDescriptor(GET_AND_SET, VAR_HANDLE, RELEASE),
-    "getAndSetAcquire"  to AtomicMethodDescriptor(GET_AND_SET, VAR_HANDLE, ACQUIRE),
+    "getAndSet"         to GET_AND_SET(VAR_HANDLE, VOLATILE, VOLATILE),
+    "getAndSetRelease"  to GET_AND_SET(VAR_HANDLE, PLAIN, RELEASE),
+    "getAndSetAcquire"  to GET_AND_SET(VAR_HANDLE, ACQUIRE, PLAIN),
 
     // compareAndSet
-    "compareAndSet"     to AtomicMethodDescriptor(COMPARE_AND_SET, VAR_HANDLE, VOLATILE),
+    "compareAndSet"     to COMPARE_AND_SET(VAR_HANDLE, VOLATILE, VOLATILE),
 
     // weakCompareAndSet
-    "weakCompareAndSet"         to AtomicMethodDescriptor(WEAK_COMPARE_AND_SET, VAR_HANDLE, VOLATILE),
-    "weakCompareAndSetAcquire"  to AtomicMethodDescriptor(WEAK_COMPARE_AND_SET, VAR_HANDLE, ACQUIRE),
-    "weakCompareAndSetRelease"  to AtomicMethodDescriptor(WEAK_COMPARE_AND_SET, VAR_HANDLE, RELEASE),
-    "weakCompareAndSetPlain"    to AtomicMethodDescriptor(WEAK_COMPARE_AND_SET, VAR_HANDLE, PLAIN),
+    "weakCompareAndSet"         to WEAK_COMPARE_AND_SET(VAR_HANDLE, VOLATILE, VOLATILE),
+    "weakCompareAndSetAcquire"  to WEAK_COMPARE_AND_SET(VAR_HANDLE, ACQUIRE, PLAIN),
+    "weakCompareAndSetRelease"  to WEAK_COMPARE_AND_SET(VAR_HANDLE, PLAIN, RELEASE),
+    "weakCompareAndSetPlain"    to WEAK_COMPARE_AND_SET(VAR_HANDLE, PLAIN, PLAIN),
 
     // compareAndExchange
-    "compareAndExchange"        to AtomicMethodDescriptor(COMPARE_AND_EXCHANGE, VAR_HANDLE, VOLATILE),
-    "compareAndExchangeAcquire" to AtomicMethodDescriptor(COMPARE_AND_EXCHANGE, VAR_HANDLE, ACQUIRE),
-    "compareAndExchangeRelease" to AtomicMethodDescriptor(COMPARE_AND_EXCHANGE, VAR_HANDLE, RELEASE),
+    "compareAndExchange"        to COMPARE_AND_EXCHANGE(VAR_HANDLE, VOLATILE,VOLATILE),
+    "compareAndExchangeAcquire" to COMPARE_AND_EXCHANGE(VAR_HANDLE, ACQUIRE, PLAIN),
+    "compareAndExchangeRelease" to COMPARE_AND_EXCHANGE(VAR_HANDLE, PLAIN, RELEASE),
 
     // getAndAdd
-    "getAndAdd"         to AtomicMethodDescriptor(GET_AND_ADD, VAR_HANDLE, VOLATILE),
-    "getAndAddAcquire"  to AtomicMethodDescriptor(GET_AND_ADD, VAR_HANDLE, ACQUIRE),
-    "getAndAddRelease"  to AtomicMethodDescriptor(GET_AND_ADD, VAR_HANDLE, RELEASE),
+    "getAndAdd"         to GET_AND_ADD(VAR_HANDLE, VOLATILE),
+    "getAndAddAcquire"  to GET_AND_ADD(VAR_HANDLE, ACQUIRE),
+    "getAndAddRelease"  to GET_AND_ADD(VAR_HANDLE, RELEASE),
 )
 
 private val unsafeMethods: Map<String, AtomicMethodDescriptor> = run {
@@ -862,41 +876,42 @@ private val unsafeMethods: Map<String, AtomicMethodDescriptor> = run {
         // get
         typeNames.flatMap { typeName -> getAccessModes.map { accessMode ->
             val accessModeRepr = if (accessMode == PLAIN) "" else accessMode.toString()
-            val descriptor = AtomicMethodDescriptor(GET, UNSAFE, accessMode)
+            val descriptor = GET( UNSAFE, accessMode)
             "get$typeName$accessModeRepr" to descriptor
         }},
         // put
         typeNames.flatMap { typeName -> putAccessModes.map { accessMode ->
             val accessModeRepr = if (accessMode == PLAIN) "" else accessMode.toString()
-            val descriptor = AtomicMethodDescriptor(SET, UNSAFE, accessMode)
+            val descriptor = SET( UNSAFE, accessMode)
             "put$typeName$accessModeRepr" to descriptor
         }},
         // getAndSet
         typeNames.flatMap { typeName -> getAndSetAccessModes.map { accessMode ->
             val accessModeRepr = if (accessMode == VOLATILE) "" else accessMode.toString()
-            val descriptor = AtomicMethodDescriptor(GET_AND_SET, UNSAFE, accessMode)
+            val descriptor = GET_AND_SET( UNSAFE, accessMode, accessMode)
             "getAndSet$typeName$accessModeRepr" to descriptor
         }},
         // compareAndSet
         typeNames.map { typeName ->
-            val descriptor = AtomicMethodDescriptor(COMPARE_AND_SET, UNSAFE, VOLATILE)
+            val descriptor = COMPARE_AND_SET( UNSAFE, VOLATILE, VOLATILE)
             "compareAndSet$typeName" to descriptor
         },
         // compareAndSwap
         typeNames.map { typeName ->
-            val descriptor = AtomicMethodDescriptor(COMPARE_AND_SET, UNSAFE, VOLATILE)
+            val descriptor = COMPARE_AND_SET(UNSAFE, VOLATILE, VOLATILE)
             "compareAndSwap$typeName" to descriptor
         },
         // weakCompareAndSet
         typeNames.flatMap { typeName -> weakCasAccessModes.map { accessMode ->
             val accessModeRepr = if (accessMode == VOLATILE) "" else accessMode.toString()
-            val descriptor = AtomicMethodDescriptor(WEAK_COMPARE_AND_SET, UNSAFE, accessMode)
+            // TODO: missing accessMode?
+            val descriptor = WEAK_COMPARE_AND_SET(UNSAFE, accessMode, accessMode)
             "weakCompareAndSet$typeName$accessModeRepr" to descriptor
         }},
         // compareAndExchange
         typeNames.flatMap { typeName -> exchangeAccessModes.map { accessMode ->
             val accessModeRepr = if (accessMode == VOLATILE) "" else accessMode.toString()
-            val descriptor = AtomicMethodDescriptor(COMPARE_AND_EXCHANGE, UNSAFE, accessMode)
+            val descriptor = COMPARE_AND_EXCHANGE(UNSAFE, accessMode, accessMode)
             "compareAndExchange$typeName$accessModeRepr" to descriptor
         }},
         // getAndAdd
@@ -904,7 +919,7 @@ private val unsafeMethods: Map<String, AtomicMethodDescriptor> = run {
             .filter { it != "Reference" && it != "Object" }
             .flatMap { typeName -> incrementAccessModes.map { accessMode ->
                 val accessModeRepr = if (accessMode == VOLATILE) "" else accessMode.toString()
-                val descriptor = AtomicMethodDescriptor(GET_AND_ADD, UNSAFE, accessMode)
+                val descriptor = GET_AND_ADD(UNSAFE, accessMode)
                 "getAndAdd$typeName$accessModeRepr" to descriptor
             }}
     ).flatten().toMap()

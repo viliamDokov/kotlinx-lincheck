@@ -22,8 +22,19 @@ package org.jetbrains.kotlinx.lincheck.strategy.managed
 
 import org.jetbrains.kotlinx.lincheck.util.ThreadId
 import org.jetbrains.lincheck.util.AtomicMethodDescriptor
-import org.jetbrains.lincheck.util.AtomicMethodKind
+import org.jetbrains.lincheck.util.ADD_AND_GET
+import org.jetbrains.lincheck.util.COMPARE_AND_EXCHANGE
+import org.jetbrains.lincheck.util.COMPARE_AND_SET
+import org.jetbrains.lincheck.util.DECREMENT_AND_GET
+import org.jetbrains.lincheck.util.GET
+import org.jetbrains.lincheck.util.GET_AND_ADD
+import org.jetbrains.lincheck.util.GET_AND_DECREMENT
+import org.jetbrains.lincheck.util.GET_AND_INCREMENT
+import org.jetbrains.lincheck.util.GET_AND_SET
+import org.jetbrains.lincheck.util.INCREMENT_AND_GET
 import org.jetbrains.lincheck.util.MemoryOrdering
+import org.jetbrains.lincheck.util.SET
+import org.jetbrains.lincheck.util.WEAK_COMPARE_AND_SET
 import org.jetbrains.lincheck.util.isAtomic
 import org.jetbrains.lincheck.util.isAtomicArray
 import org.jetbrains.lincheck.util.isUnsafe
@@ -39,9 +50,9 @@ interface MemoryTracker {
 
     fun beforeGetAndSet(iThread: Int, codeLocation: Int, location: MemoryLocation, memoryOrder: MemoryOrdering, newValue: Any?)
 
-    fun beforeCompareAndSet(iThread: Int, codeLocation: Int, location: MemoryLocation, memoryOrder: MemoryOrdering, expectedValue: Any?, newValue: Any?)
+    fun beforeCompareAndSet(iThread: Int, codeLocation: Int, location: MemoryLocation, readMemoryOrder: MemoryOrdering, writeMemoryOrder: MemoryOrdering, expectedValue: Any?, newValue: Any?)
 
-    fun beforeCompareAndExchange(iThread: Int, codeLocation: Int, location: MemoryLocation, memoryOrder: MemoryOrdering, expectedValue: Any?, newValue: Any?)
+    fun beforeCompareAndExchange(iThread: Int, codeLocation: Int, location: MemoryLocation, readMemoryOrder: MemoryOrdering, writeMemoryOrder: MemoryOrdering, expectedValue: Any?, newValue: Any?)
 
     // TODO: move increment kind enum here?
     fun beforeGetAndAdd(iThread: Int, codeLocation: Int, location: MemoryLocation, memoryOrder: MemoryOrdering, delta: Number)
@@ -73,56 +84,65 @@ internal fun MemoryTracker.trackAtomicMethodMemoryAccess(
     argOffset += if (isUnsafe(owner)) 1 else 0
     // array accesses (besides Unsafe) take index as an additional argument
     argOffset += if (location is ArrayElementMemoryLocation && !isUnsafe(owner)) 1 else 0
-    when (methodDescriptor.kind) {
-        AtomicMethodKind.SET -> {
-            beforeWrite(iThread, codeLocation, location, methodDescriptor.ordering,
+    when (methodDescriptor) {
+        is SET -> {
+            beforeWrite(iThread, codeLocation, location, methodDescriptor.memoryOrdering,
                 value = params[argOffset]
             )
         }
-        AtomicMethodKind.GET -> {
-            beforeRead(iThread, codeLocation, location, methodDescriptor.ordering)
+        is GET -> {
+            beforeRead(iThread, codeLocation, location, methodDescriptor.memoryOrdering)
         }
-        AtomicMethodKind.GET_AND_SET -> {
-            beforeGetAndSet(iThread, codeLocation, location, methodDescriptor.ordering,
+        is GET_AND_SET -> {
+            beforeGetAndSet(iThread, codeLocation, location, methodDescriptor.readOrdering,
                 newValue = params[argOffset]
             )
         }
-        AtomicMethodKind.COMPARE_AND_SET, AtomicMethodKind.WEAK_COMPARE_AND_SET -> {
-            beforeCompareAndSet(iThread, codeLocation, location, methodDescriptor.ordering,
+        is COMPARE_AND_SET -> {
+            beforeCompareAndSet(iThread, codeLocation, location, methodDescriptor.readOrdering,
+                writeMemoryOrder = methodDescriptor.writeOrdering,
                 expectedValue = params[argOffset],
                 newValue = params[argOffset + 1]
             )
         }
-        AtomicMethodKind.COMPARE_AND_EXCHANGE -> {
-            beforeCompareAndExchange(iThread, codeLocation, location, methodDescriptor.ordering,
+        is WEAK_COMPARE_AND_SET -> {
+            beforeCompareAndSet(iThread, codeLocation, location, methodDescriptor.readOrdering,
+                writeMemoryOrder = methodDescriptor.writeOrdering,
                 expectedValue = params[argOffset],
                 newValue = params[argOffset + 1]
             )
         }
-        AtomicMethodKind.GET_AND_ADD -> {
-            beforeGetAndAdd(iThread, codeLocation, location, methodDescriptor.ordering,
+        is COMPARE_AND_EXCHANGE -> {
+            beforeCompareAndExchange(iThread, codeLocation, location, methodDescriptor.readOrdering,
+                writeMemoryOrder = methodDescriptor.writeOrdering,
+                expectedValue = params[argOffset],
+                newValue = params[argOffset + 1]
+            )
+        }
+        is GET_AND_ADD -> {
+            beforeGetAndAdd(iThread, codeLocation, location, methodDescriptor.memoryOrdering,
                 delta = (params[argOffset] as Number)
             )
         }
-        AtomicMethodKind.ADD_AND_GET -> {
-            beforeAddAndGet(iThread, codeLocation, location, methodDescriptor.ordering,
+        is ADD_AND_GET -> {
+            beforeAddAndGet(iThread, codeLocation, location, methodDescriptor.memoryOrdering,
                 delta = (params[argOffset] as Number)
             )
         }
-        AtomicMethodKind.GET_AND_INCREMENT -> {
-            beforeGetAndAdd(iThread, codeLocation, location, methodDescriptor.ordering, delta = 1.convert(location.type))
+        is GET_AND_INCREMENT -> {
+            beforeGetAndAdd(iThread, codeLocation, location, methodDescriptor.memoryOrdering, delta = 1.convert(location.type))
         }
-        AtomicMethodKind.INCREMENT_AND_GET -> {
-            beforeAddAndGet(iThread, codeLocation, location, methodDescriptor.ordering, delta = 1.convert(location.type))
+        is INCREMENT_AND_GET -> {
+            beforeAddAndGet(iThread, codeLocation, location, methodDescriptor.memoryOrdering, delta = 1.convert(location.type))
         }
-        AtomicMethodKind.GET_AND_DECREMENT -> {
-            beforeGetAndAdd(iThread, codeLocation, location, methodDescriptor.ordering, delta = (-1).convert(location.type))
+        is GET_AND_DECREMENT -> {
+            beforeGetAndAdd(iThread, codeLocation, location, methodDescriptor.memoryOrdering, delta = (-1).convert(location.type))
         }
-        AtomicMethodKind.DECREMENT_AND_GET -> {
-            beforeAddAndGet(iThread, codeLocation, location, methodDescriptor.ordering, delta = (-1).convert(location.type))
+        is DECREMENT_AND_GET -> {
+            beforeAddAndGet(iThread, codeLocation, location, methodDescriptor.memoryOrdering, delta = (-1).convert(location.type))
         }
     }
-    return (methodDescriptor.kind != AtomicMethodKind.SET)
+    return (methodDescriptor !is SET)
 }
 
 typealias MemoryInitializer = (MemoryLocation) -> OpaqueValue?
