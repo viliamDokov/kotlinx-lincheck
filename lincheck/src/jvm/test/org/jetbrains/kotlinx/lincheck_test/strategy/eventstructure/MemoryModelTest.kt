@@ -181,4 +181,33 @@ class MemoryModelTest {
         }
     }
 
+    @Test
+    fun testCompletenessIssue() {
+        val expectedOutcomes = setOf(listOf(1,1,1,0))
+        litmusTest(assertSometimes(expectedOutcomes)) {
+            val x = AtomicInteger(0)
+            val y = AtomicInteger(0)
+            val r = IntArray(4)
+            val t1 = thread {
+                r[0] = y.get()
+                y.set(1)
+                r[1] = x.get()
+            }
+            val t2 = thread {
+                r[2] = x.get()
+                r[3] = y.get()
+                y.set(1)
+            }
+            val t3 = thread {
+                x.set(1)
+            }
+
+            t1.join()
+            t2.join()
+            t3.join()
+
+            r.toList()
+        }
+    }
+
 }
